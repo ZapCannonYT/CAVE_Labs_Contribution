@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Aria — Advanced Personal Medical Assistant</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+        :root {
+            color-scheme: dark;
+            accent-color: #10a37f;
+            --sidebar-bg: #171717;
+            --chat-bg: #212121;
+            --user-msg-bg: #2f2f2f;
+            --bot-msg-bg: transparent;
+            --input-bg: #2f2f2f;
+            --border-color: #2f2f2f;
+            --text-main: #ececf1;
+            --text-muted: #b4b4b4;
+            --accent-color: #10a37f;
+            /* ChatGPT Teal-Green */
+            --accent-hover: #1a7f64;
+            --danger-color: #ef4444;
+            --font-sans: 'Source Sans 3', sans-serif;
+            --font-header: 'Sora', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--chat-bg);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar Layout --- */
+        aside {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            gap: 1rem;
+            border-right: 1px solid var(--border-color);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.25rem;
+        }
+
+        .sidebar-logo {
+            background-color: var(--accent-color);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: #fff;
+        }
+
+        .sidebar-header h2 {
+            font-family: var(--font-header);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+            text-wrap: balance;
+        }
+
+        /* --- Drag & Drop Zone --- */
+        .upload-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .drop-zone {
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.25s ease, background-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.02);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone:hover {
+            border-color: rgba(16, 163, 127, 0.6);
+            background: rgba(16, 163, 127, 0.02);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 0 12px rgba(16, 163, 127, 0.04);
+        }
+
+        .drop-zone.dragover {
+            border-color: var(--accent-color);
+            background: rgba(16, 163, 127, 0.08);
+            transform: scale(0.99);
+            box-shadow: 0 4px 24px rgba(16, 163, 127, 0.15);
+        }
+
+        .upload-icon-wrapper {
+            background-color: rgba(16, 163, 127, 0.08);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            margin-bottom: 0.25rem;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.25s ease;
+        }
+
+        .drop-zone:hover .upload-icon-wrapper {
+            transform: translateY(-3px) scale(1.05);
+            background-color: rgba(16, 163, 127, 0.15);
+        }
+
+        .upload-svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .drop-text {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        .drop-subtext {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.2;
+        }
+
+        .browse-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-top: 0.25rem;
+            outline: none;
+        }
+
+        .drop-zone:hover .browse-btn {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
+        }
+
+        /* --- File Details Bar --- */
+        .file-status-card {
+            background: linear-gradient(135deg, rgba(47, 47, 47, 0.7), rgba(35, 35, 35, 0.7));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            animation: cardSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .file-status-card.hidden {
+            display: none;
+        }
+
+        .file-details {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .doc-icon-wrapper {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            flex-shrink: 0;
+        }
+
+        .doc-svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .file-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .file-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Progress bar --- */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-top: 0.1rem;
+        }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent-color), #1dbf97);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+            position: relative;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            animation: barShimmer 1.5s infinite;
+        }
+
+        @keyframes barShimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .progress-text {
+            font-size: 0.72rem;
+            color: var(--accent-color);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn-sm {
+            padding: 0.45rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+            margin-top: 0.2rem;
+        }
+
+        .file-actions .btn {
+            flex: 1;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            height: 32px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #cancel-file-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+        }
+
+        #cancel-file-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        #upload-btn {
+            background: var(--accent-color);
+            border: 1px solid transparent;
+            color: #fff;
+        }
+
+        #upload-btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 12px rgba(16, 163, 127, 0.25);
+        }
+
+        /* --- Sidebar Buttons --- */
+        .btn {
+            padding: 0.65rem 0.85rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.15s ease;
+            color: #fff;
+            font-family: var(--font-sans);
+            width: 100%;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-color);
+            padding-top: 0.85rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+        }
+
+        /* --- Settings Popover (Modern Popover API) --- */
+        .settings-popover {
+            position: fixed;
+            inset: 0;
+            margin: auto;
+            width: 380px;
+            height: max-content;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.25rem;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+            color: var(--text-main);
+            outline: none;
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+            transition: opacity 0.2s ease-out, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), display 0.2s allow-discrete, overlay 0.2s allow-discrete;
+        }
+
+        .settings-popover:popover-open {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        @starting-style {
+            .settings-popover:popover-open {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+        }
+
+        /* Backdrop with modern blur */
+        .settings-popover::backdrop {
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.2s ease-out, display 0.2s allow-discrete, overlay 0.2s allow-discrete;
+        }
+
+        .settings-popover:popover-open::backdrop {
+            opacity: 1;
+        }
+
+        @starting-style {
+            .settings-popover:popover-open::backdrop {
+                opacity: 0;
+            }
+        }
+
+        .popover-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .settings-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .close-popover-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 0.25rem;
+            transition: color 0.15s ease;
+        }
+
+        .close-popover-btn:hover {
+            color: #fff;
+        }
+
+        .popover-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .settings-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .settings-input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-main);
+            padding: 0.45rem 0.55rem;
+            font-size: 0.82rem;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.15s ease;
+        }
+
+        .settings-input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .settings-help {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* --- Main Chat Viewport --- */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--chat-bg);
+            position: relative;
+        }
+
+        /* --- Chat Header --- */
+        .chat-header {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--chat-bg);
+            font-family: var(--font-header);
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: -0.01em;
+            color: var(--text-muted);
+            text-wrap: balance;
+        }
+
+        /* --- Messages Area --- */
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+        }
+
+        #messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        /* Message Rows matching ChatGPT styles with entry animation */
+        .message-row {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.35s ease-out, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @starting-style {
+            .message-row {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+        }
+
+        .message-row.user-row {
+            background-color: var(--chat-bg);
+        }
+
+        .message-row.bot-row {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .message-container {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .avatar.user-avatar {
+            background-color: #5436da;
+            color: #fff;
+        }
+
+        .avatar.bot-avatar {
+            background-color: var(--accent-color);
+            color: #fff;
+        }
+
+        .message-content {
+            flex: 1;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            word-wrap: break-word;
+            padding-top: 0.15rem;
+            text-wrap: pretty;
+        }
+
+        /* Markdown styling inside messages */
+        .message-content strong {
+            color: #fff;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin-left: 1.5rem;
+            margin-top: 0.4rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .message-content li {
+            margin-bottom: 0.3rem;
+        }
+
+        .message-content hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 1rem 0;
+        }
+
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin-top: 1rem;
+            margin-bottom: 0.4rem;
+            font-family: var(--font-header);
+            font-weight: 600;
+            color: #fff;
+            text-wrap: balance;
+        }
+
+        .message-content h1 {
+            font-size: 1.3rem;
+        }
+
+        .message-content h2 {
+            font-size: 1.15rem;
+        }
+
+        .message-content h3 {
+            font-size: 1.05rem;
+        }
+
+        /* Thinking Animation style */
+        .thinking-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-style: italic;
+            color: var(--text-muted);
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            animation: pulseAnimation 1.2s infinite ease-in-out;
+            display: inline-block;
+        }
+
+        @keyframes pulseAnimation {
+
+            0%,
+            100% {
+                transform: scale(0.6);
+                opacity: 0.4;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        /* --- Chat Input Container --- */
+        .input-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 1rem 1.5rem 1rem;
+            background-image: linear-gradient(180deg, rgba(33, 33, 33, 0), var(--chat-bg) 50%);
+        }
+
+        .input-box {
+            width: 100%;
+            max-width: 720px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 0.5rem 0.5rem 0.5rem 1.15rem;
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .input-box:focus-within {
+            border-color: #555;
+        }
+
+        #user-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-family: var(--font-sans);
+            padding: 0.45rem 0;
+            resize: none;
+            height: auto;
+            max-height: 180px;
+            field-sizing: content;
+            line-height: 1.5;
+        }
+
+        #user-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Send Button */
+        .send-action-btn,
+        .stop-action-btn {
+            background-color: var(--accent-color);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            transition: background-color 0.15s ease;
+            flex-shrink: 0;
+            margin-bottom: 2px;
+        }
+
+        .send-action-btn:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+        }
+
+        .send-action-btn:disabled {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .send-action-btn svg,
+        .stop-action-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .stop-action-btn {
+            background-color: var(--danger-color);
+        }
+
+        .stop-action-btn:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+
+        /* Input Footer Note */
+        .footer-note {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            aside {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Left Sidebar Area -->
+    <aside>
+        <div class="sidebar-header">
+            <div class="sidebar-logo">Dr</div>
+            <h2>Dr. Aria</h2>
+        </div>
+
+        <!-- Upload Card Container -->
+        <div class="upload-container">
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone" class="drop-zone">
+                <div class="upload-icon-wrapper">
+                    <svg viewBox="0 0 24 24" class="upload-svg" fill="currentColor">
+                        <path
+                            d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+                    </svg>
+                </div>
+                <p class="drop-text">Drag & drop health report</p>
+                <p class="drop-subtext">PDF or Image up to 25MB</p>
+                <button type="button" class="browse-btn" id="browse-btn">Browse Files</button>
+                <input type="file" id="doc-upload" style="display:none;"
+                    accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif">
+            </div>
+
+            <!-- Upload Progress/Action Card -->
+            <div id="file-info-bar" class="file-status-card hidden">
+                <div class="file-details">
+                    <div class="doc-icon-wrapper">
+                        <svg viewBox="0 0 24 24" class="doc-svg" fill="currentColor">
+                            <path
+                                d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                        </svg>
+                    </div>
+                    <div class="file-meta">
+                        <span id="file-details-text" class="file-name">No file selected</span>
+                        <span id="file-size-text" class="file-size">0 KB</span>
+                    </div>
+                </div>
+                <!-- Progress bar tracker -->
+                <div id="upload-progress-container" class="progress-container hidden">
+                    <div class="progress-bar-wrapper">
+                        <div id="upload-progress-bar" class="progress-bar"></div>
+                    </div>
+                    <span id="progress-text-label" class="progress-text">Processing OCR...</span>
+                </div>
+                <div class="file-actions">
+                    <button id="cancel-file-btn" class="btn btn-secondary btn-sm">Cancel</button>
+                    <button id="upload-btn" class="btn btn-primary btn-sm" disabled>Upload</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Tools -->
+        <button id="summarize-btn" class="btn btn-secondary" disabled title="Summarize document">Summarize
+            Document</button>
+        <button id="clear-chat-btn" class="btn btn-secondary" title="Clear chat history">Clear Chat</button>
+
+        <!-- Developer Settings Popover Toggle Button -->
+        <button id="toggle-settings-btn" popovertarget="settings-popover" class="btn btn-secondary"
+            title="Open developer settings" style="margin-top: auto;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 0.25rem;">
+                <path
+                    d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+            </svg>
+            Developer Settings
+        </button>
+
+        <div class="sidebar-footer">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Health AI Server Online</span>
+            </div>
+            <span>Dr. Aria v3.2 (Local)</span>
+        </div>
+    </aside>
+
+    <!-- Right Main Chat Area -->
+    <main>
+        <div class="chat-header">
+            <span>Dr. Aria — AI Health Assistant</span>
+        </div>
+
+        <!-- Chat Messages Viewport -->
+        <div id="messages"></div>
+
+        <!-- Chat Input Area -->
+        <div class="input-wrapper">
+            <div class="input-box">
+                <textarea id="user-input" rows="1"
+                    placeholder="Ask Dr. Aria about your medical documents or symptoms..."
+                    autocomplete="off"></textarea>
+
+                <button id="send-btn" class="send-action-btn" aria-label="Send message">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                    </svg>
+                </button>
+                <button id="stop-btn" class="stop-action-btn" style="display: none;" aria-label="Stop generation">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 19h12V5H6v14z" />
+                    </svg>
+                </button>
+            </div>
+            <p class="footer-note">Dr. Aria is an AI health assistant. Review medical files locally. Always consult a
+                healthcare professional for clinical advice.</p>
+        </div>
+    </main>
+
+    <!-- Developer Settings Popover -->
+    <div id="settings-popover" popover class="settings-popover">
+        <div class="popover-header">
+            <h3 class="settings-title">Developer Settings</h3>
+            <button class="close-popover-btn" popovertarget="settings-popover" popovertargetaction="hide"
+                aria-label="Close settings">×</button>
+        </div>
+        <div class="popover-body">
+            <label for="api-key-input" class="settings-label">Server Authorization Key (X-API-Key)</label>
+            <input type="password" id="api-key-input" class="settings-input"
+                placeholder="Enter API Key if configured..." title="Set the API Key sent in headers (X-API-Key)" />
+            <p class="settings-help">If your server is in Production Mode (unauthenticated disabled), enter the API key
+                matching <code>DIGITAL_TWIN_API_KEY</code> here.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('[chat.html] Initializing...');
+
+        const API_BASE = window.location.origin.includes('http') ? window.location.origin : 'http://localhost:8000';
+        const UPLOAD_URL = `${API_BASE}/upload-and-embed`;
+        const GENERATE_URL = `${API_BASE}/generate`;
+
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
+        const fileInput = document.getElementById('doc-upload');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInfoBar = document.getElementById('file-info-bar');
+        const fileDetailsText = document.getElementById('file-details-text');
+        const uploadBtn = document.getElementById('upload-btn');
+        const cancelFileBtn = document.getElementById('cancel-file-btn');
+        const summarizeBtn = document.getElementById('summarize-btn');
+        const stopBtn = document.getElementById('stop-btn');
+
+        const apiKeyInput = document.getElementById('api-key-input');
+
+        if (localStorage.getItem('health_ai_api_key')) {
+            apiKeyInput.value = localStorage.getItem('health_ai_api_key');
+        }
+
+        apiKeyInput.addEventListener('input', () => {
+            localStorage.setItem('health_ai_api_key', apiKeyInput.value.trim());
+        });
+
+        let storedChunks = [];
+        let currentFile = null;
+        let thinkingElem = null;
+        let currentAbortController = null;
+
+        function parseMarkdown(text) {
+            if (!text) return '';
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            const lines = html.split('\n');
+            let inList = false;
+            const processedLines = [];
+
+            for (let line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+                    if (!inList) {
+                        processedLines.push('<ul>');
+                        inList = true;
+                    }
+                    const content = trimmed.substring(2).trim();
+                    processedLines.push(`<li>${content}</li>`);
+                } else {
+                    if (inList) {
+                        processedLines.push('</ul>');
+                        inList = false;
+                    }
+                    if (trimmed === '---') {
+                        processedLines.push('<hr>');
+                    } else if (trimmed.startsWith('### ')) {
+                        processedLines.push(`<h3>${trimmed.substring(4).trim()}</h3>`);
+                    } else if (trimmed.startsWith('## ')) {
+                        processedLines.push(`<h2>${trimmed.substring(3).trim()}</h2>`);
+                    } else if (trimmed.startsWith('# ')) {
+                        processedLines.push(`<h1>${trimmed.substring(2).trim()}</h1>`);
+                    } else {
+                        processedLines.push(line);
+                    }
+                }
+            }
+            if (inList) {
+                processedLines.push('</ul>');
+            }
+
+            let result = processedLines.join('\n');
+            result = result.replace(/\n/g, '<br>');
+            result = result.replace(/<\/ul><br>/g, '</ul>');
+            result = result.replace(/<ul><br>/g, '<ul>');
+            result = result.replace(/<\/li><br>/g, '</li>');
+            result = result.replace(/<li><br>/g, '<li>');
+            result = result.replace(/<hr><br>/g, '<hr>');
+            result = result.replace(/<\/h3><br>/g, '</h3>');
+            result = result.replace(/<\/h2><br>/g, '</h2>');
+            result = result.replace(/<\/h1><br>/g, '</h1>');
+
+            return result;
+        }
+
+        // ----- UI Helpers -----
+        function addMessage(text, fromUser = false, isThinking = false) {
+            const row = document.createElement('div');
+            row.className = `message-row ${fromUser ? 'user-row' : 'bot-row'}`;
+
+            const container = document.createElement('div');
+            container.className = 'message-container';
+
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${fromUser ? 'user-avatar' : 'bot-avatar'}`;
+            avatar.textContent = fromUser ? 'U' : 'Dr';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            if (isThinking) {
+                content.className += ' thinking-content';
+                content.innerHTML = `<span class="pulse"></span> ${text}`;
+                thinkingElem = row;
+            } else {
+                content.innerHTML = parseMarkdown(text);
+            }
+
+            container.appendChild(avatar);
+            container.appendChild(content);
+            row.appendChild(container);
+
+            messagesDiv.appendChild(row);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeThinking() {
+            if (thinkingElem && thinkingElem.parentNode) {
+                thinkingElem.remove();
+                thinkingElem = null;
+            }
+        }
+
+        function setFile(file) {
+            currentFile = file;
+            const fileSizeText = document.getElementById('file-size-text');
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const progressLabel = document.getElementById('progress-text-label');
+
+            if (file) {
+                fileDetailsText.textContent = file.name;
+                if (fileSizeText) {
+                    fileSizeText.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+                }
+                uploadBtn.disabled = false;
+                fileInfoBar.classList.remove('hidden');
+                dropZone.style.display = 'none';
+
+                // Reset progress UI
+                if (progressContainer) progressContainer.classList.add('hidden');
+                if (progressBar) progressBar.style.width = '0%';
+                if (progressLabel) progressLabel.textContent = 'Processing OCR...';
+            } else {
+                fileDetailsText.textContent = 'No file selected';
+                if (fileSizeText) fileSizeText.textContent = '0 KB';
+                uploadBtn.disabled = true;
+                fileInfoBar.classList.add('hidden');
+                dropZone.style.display = 'flex';
+            }
+        }
+
+        // ----- Drag & Drop Logic -----
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const file = dt.files[0] || null;
+            setFile(file);
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        const browseBtn = document.getElementById('browse-btn');
+        if (browseBtn) {
+            browseBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Stop bubbling to prevent double-trigger click on dropZone
+                fileInput.click();
+            });
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0] || null;
+            setFile(file);
+            fileInput.value = '';
+        });
+
+        cancelFileBtn.addEventListener('click', () => setFile(null));
+
+        // ----- Upload Document -----
+        function uploadFile() {
+            if (!currentFile) return;
+            uploadBtn.disabled = true;
+            cancelFileBtn.disabled = true;
+
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const progressLabel = document.getElementById('progress-text-label');
+
+            if (progressContainer) progressContainer.classList.remove('hidden');
+            if (progressBar) progressBar.style.width = '10%';
+            if (progressLabel) progressLabel.textContent = 'Uploading document...';
+
+            // Simulate progress stages
+            let progressInterval = setInterval(() => {
+                if (!progressBar) return;
+                let curWidth = parseFloat(progressBar.style.width);
+                if (curWidth < 45) {
+                    progressBar.style.width = (curWidth + 5) + '%';
+                } else if (curWidth < 85) {
+                    if (progressLabel) progressLabel.textContent = 'Processing medical OCR & indexing...';
+                    progressBar.style.width = (curWidth + 1.5) + '%';
+                }
+            }, 300);
+
+            const formData = new FormData();
+            formData.append('file', currentFile);
+
+            const headers = {};
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                headers['X-API-Key'] = key;
+            }
+
+            fetch(UPLOAD_URL, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            })
+                .then(resp => {
+                    clearInterval(progressInterval);
+                    if (!resp.ok) {
+                        return resp.json().then(err => {
+                            throw new Error(err.detail || err.message || `Upload failed with status ${resp.status}`);
+                        });
+                    }
+                    return resp.json();
+                })
+                .then(data => {
+                    if (progressBar) progressBar.style.width = '100%';
+                    if (progressLabel) progressLabel.textContent = 'Embedding complete!';
+
+                    setTimeout(() => {
+                        storedChunks = data.chunks.map(c => c.text);
+                        addMessage(`[Success] Successfully processed "${currentFile.name}"! Loaded ${storedChunks.length} text blocks. You can now ask questions about this document.`, false);
+                        summarizeBtn.disabled = false;
+                        setFile(null);
+                    }, 500);
+                })
+                .catch(err => {
+                    clearInterval(progressInterval);
+                    console.error('[chat.html] Upload error:', err);
+                    addMessage(`[Error] Processing failed: ${err.message}`, false);
+                    if (progressContainer) progressContainer.classList.add('hidden');
+                })
+                .finally(() => {
+                    uploadBtn.disabled = false;
+                    cancelFileBtn.disabled = false;
+                });
+        }
+
+        uploadBtn.addEventListener('click', uploadFile);
+
+        // ----- Summarize Document -----
+        function summarizeDocument() {
+            if (storedChunks.length === 0) return;
+            addMessage('[Reviewing] Reviewing document chunks to generate summary...', false, true);
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+            summarizeBtn.disabled = true;
+
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-flex';
+            currentAbortController = new AbortController();
+
+            const payload = {
+                query: 'Please provide a comprehensive summary of the uploaded medical document, highlighting key values, parameters, diagnoses, or notes.',
+                chunks: storedChunks,
+                history: [],
+                patient_context: null
+            };
+
+            const headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                headers['X-API-Key'] = key;
+            }
+
+            fetch(GENERATE_URL, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload),
+                signal: currentAbortController.signal
+            })
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(err => { throw new Error(err.detail || err.message || 'Server error'); });
+                    }
+                    return resp.json();
+                })
+                .then(data => {
+                    removeThinking();
+                    let response = (data.response || '').replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+                    addMessage(response);
+                })
+                .catch(err => {
+                    removeThinking();
+                    if (err.name === 'AbortError') {
+                        addMessage('⚠️ Response generation stopped by user.', false);
+                    } else {
+                        console.error('[chat.html] Summarization error:', err);
+                        addMessage(`❌ Summarization failed: ${err.message}`);
+                    }
+                })
+                .finally(() => {
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    summarizeBtn.disabled = false;
+                    sendBtn.style.display = 'inline-flex';
+                    stopBtn.style.display = 'none';
+                    currentAbortController = null;
+                    userInput.focus();
+                });
+        }
+
+        summarizeBtn.addEventListener('click', summarizeDocument);
+
+        // ----- Ask Question -----
+        function askQuestion(question) {
+            addMessage(question, true);
+            addMessage('Thinking...', false, true);
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-flex';
+            currentAbortController = new AbortController();
+
+            const payload = {
+                query: question,
+                chunks: storedChunks,
+                history: [],
+                patient_context: null
+            };
+
+            const headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                headers['X-API-Key'] = key;
+            }
+
+            fetch(GENERATE_URL, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload),
+                signal: currentAbortController.signal
+            })
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(err => { throw new Error(err.detail || err.message || 'Server error'); });
+                    }
+                    return resp.json();
+                })
+                .then(data => {
+                    removeThinking();
+                    let response = (data.response || '').replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+                    addMessage(response);
+                })
+                .catch(err => {
+                    removeThinking();
+                    if (err.name === 'AbortError') {
+                        addMessage('[Notice] Response generation stopped by user.', false);
+                    } else {
+                        console.error('[chat.html] Generation error:', err);
+                        addMessage(`[Error] Failed to get answer: ${err.message}`);
+                    }
+                })
+                .finally(() => {
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    sendBtn.style.display = 'inline-flex';
+                    stopBtn.style.display = 'none';
+                    currentAbortController = null;
+                    userInput.focus();
+                });
+        }
+
+        function handleUserInput() {
+            const question = userInput.value.trim();
+            if (!question) return;
+            askQuestion(question);
+            userInput.value = '';
+        }
+
+        sendBtn.addEventListener('click', handleUserInput);
+        userInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleUserInput();
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (currentAbortController) {
+                currentAbortController.abort();
+            }
+        });
+
+        clearChatBtn.addEventListener('click', () => {
+            messagesDiv.innerHTML = '';
+            userInput.value = '';
+            userInput.focus();
+        });
+
+        // Welcome Dr. Aria greeting on startup
+        addMessage("Dr. Aria Health AI online. Upload your health report or prescription, and I will help you review it.", false);
+        userInput.focus();
+    </script>
+
+</body>
+
+</html>

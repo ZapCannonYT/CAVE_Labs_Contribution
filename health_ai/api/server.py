@@ -23,22 +23,31 @@ import tempfile
 import re
 import time as _time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import jwt
+import requests
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, Security
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader, HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
+from health_ai.config.settings import EMBEDDING_MODEL_NAME, LLM_MODEL_PATH
 from health_ai.embeddings.embedder import EmbeddingModel
 from health_ai.rag.chunker import TextChunker
 from health_ai.utils.document_reader import DocumentReader, SUPPORTED_EXTENSIONS
 from health_ai.model.llm_loader import LLMEngine
 from health_ai.core.character import (
     classify_intent, get_system_prompt, get_max_tokens,
-    detect_urgent, DISCLAIMER, URGENT_NOTICE, OFF_TOPIC_RESPONSE,
+    detect_urgent, OFF_TOPIC_RESPONSE,
     GREETING_RESPONSE, MAX_HISTORY_TURNS, FAREWELL_RESPONSE,
 )
-from health_ai.core.safety import apply_safety_layer
+from health_ai.core.safety import (
+    apply_safety_layer, DISCLAIMER, URGENT_NOTICE, detect_red_flags,
+    detect_prompt_injection, BYPASS_ATTEMPT_RESPONSE
+)
+
 from health_ai.rag.context_builder import build_context
 from health_ai.core.logger import get_logger
 from health_ai.core.exceptions import (
@@ -56,9 +65,9 @@ log = get_logger(__name__)
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Health AI v3",
+    title="Health AI v3.2",
     description="Offline personal medical AI — Dr. Aria powered by Qwen2.5-14B-Instruct.",
-    version="3.0.0",
+    version="3.2.0",
 )
 
 app.add_middleware(
@@ -68,6 +77,93 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Set env var DIGITAL_TWIN_API_KEY to require callers to pass an API key.
+def _load_env_fallback():
+    for path in [
+        Path(".env"),
+        Path("../.env"),
+        Path("../../.env"),
+        Path(__file__).parent.parent.parent / ".env",
+        Path(__file__).parent.parent / ".env",
+    ]:
+        if path.exists() and path.is_file():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip("'\"")
+                            if k and v and k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
+            break
+
+_load_env_fallback()
+API_KEY_ENV = os.environ.get("DIGITAL_TWIN_API_KEY", "")
+ALLOW_UNAUTHENTICATED = os.environ.get("HEALTH_AI_ALLOW_UNAUTHENTICATED", "false").lower() == "true"
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+http_bearer = HTTPBearer(auto_error=False)
+
+FIREBASE_PROJECT_ID = "vital-health-2026-1e1ee"
+GOOGLE_PUBLIC_KEYS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+
+_public_keys = {}
+_keys_expire_at = 0
+
+def get_google_public_key(kid: str) -> Optional[str]:
+    global _public_keys, _keys_expire_at
+    now = _time.time()
+    if not _public_keys or now > _keys_expire_at:
+        try:
+            res = requests.get(GOOGLE_PUBLIC_KEYS_URL, timeout=5)
+            if res.status_code == 200:
+                _public_keys = res.json()
+                _keys_expire_at = now + 3600
+        except Exception:
+            pass
+    return _public_keys.get(kid)
+
+async def require_api_key(
+    x_api_key: Optional[str] = Depends(api_key_header),
+    bearer: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer)
+):
+    # 1. First try matching the X-API-Key header
+    if API_KEY_ENV and x_api_key == API_KEY_ENV:
+        return {"auth_type": "api_key"}
+
+    # 2. Try validating Bearer token as a Firebase ID Token
+    if bearer:
+        token = bearer.credentials
+        try:
+            header = jwt.get_unverified_header(token)
+            kid = header.get("kid")
+            if kid:
+                cert_pem = get_google_public_key(kid)
+                if cert_pem:
+                    payload = jwt.decode(
+                        token,
+                        cert_pem,
+                        algorithms=["RS256"],
+                        audience=FIREBASE_PROJECT_ID,
+                        issuer=f"https://securetoken.google.com/{FIREBASE_PROJECT_ID}"
+                    )
+                    return {"auth_type": "firebase", "user": payload}
+        except Exception as e:
+            raise HTTPException(status_code=403, detail=f"Firebase ID Token validation failed: {e}")
+
+    # 3. Development fallback mode
+    if ALLOW_UNAUTHENTICATED:
+        return {"auth_type": "unauthenticated"}
+
+    raise HTTPException(
+        status_code=403,
+        detail="Invalid or missing API key (X-API-Key) or Firebase ID Token (Bearer)."
+    )
 
 # ── Singletons ────────────────────────────────────────────────────────────────
 
@@ -95,18 +191,18 @@ async def startup():
     port   = int(os.environ.get("PORT", 8000))
     lan_ip = _get_local_ip()
 
-    print("\n" + "═" * 58)
-    print("  🩺  Health AI v3  —  Dr. Aria is loading …")
-    print("═" * 58)
+    print("\n" + "=" * 58)
+    print("  [Dr. Aria] Health AI v3  —  Dr. Aria is loading ...")
+    print("=" * 58)
     print(f"  Local:   http://localhost:{port}")
-    print(f"  Network: http://{lan_ip}:{port}   ← use this in the app")
-    print("═" * 58 + "\n")
+    print(f"  Network: http://{lan_ip}:{port}   <- use this in the app")
+    print("=" * 58 + "\n")
 
-    log.info("Loading embedding model …")
+    log.info("Loading embedding model ...")
     _embedder = EmbeddingModel()
     _embedder._ensure_loaded()
 
-    log.info("Loading LLM — this may take up to 60 seconds …")
+    log.info("Loading LLM — this may take up to 60 seconds ...")
     try:
         _llm = LLMEngine()
         _llm._ensure_loaded()
@@ -117,9 +213,9 @@ async def startup():
     _chunker = TextChunker()
     _reader  = DocumentReader()
 
-    print("\n" + "═" * 58)
-    print("  ✅  Dr. Aria is ready!")
-    print("═" * 58 + "\n")
+    print("\n" + "=" * 58)
+    print("  [Ready] Dr. Aria is ready!")
+    print("=" * 58 + "\n")
 
 
 # ── Request / Response models ─────────────────────────────────────────────────
@@ -157,6 +253,7 @@ class PatientContext(BaseModel):
     medicines:       List[MedicineItem] = []
     activeSymptoms:  List[SymptomItem]  = []
     historySymptoms: List[SymptomItem]  = []
+    situation:       Optional[str]      = None
 
 
 class GenerateRequest(BaseModel):
@@ -270,7 +367,7 @@ _CROSS_DOMAIN_KW = frozenset([
 def _is_medicine_query(q: str) -> bool:
     q = q.lower().strip()
 
-    # 🔥 Strong direct signals (handles real user language)
+    #  Strong direct signals (handles real user language)
     if any(x in q for x in [
         "meds", "medicine", "medication",
         "pill", "tablet", "capsule",
@@ -280,7 +377,7 @@ def _is_medicine_query(q: str) -> bool:
     ]):
         return True
 
-    # 🧠 Fallback to full keyword set
+    #  Fallback to full keyword set
     return any(kw in q for kw in _MED_KW)
 
 
@@ -397,14 +494,26 @@ def _build_symptom_context(symptoms) -> str:
     return "\n".join(lines) if lines else ""
 
 
+def _clean_think_tags(text: str) -> str:
+    """Strip <think>...</think> block including the tags case-insensitively, even if truncated."""
+    if not text:
+        return ""
+    # Strip closed think/thinking/thought blocks
+    text = re.sub(r'<(think|thinking|thought)>[\s\S]*?</\1>', '', text, flags=re.IGNORECASE)
+    # Strip open/unclosed think/thinking/thought blocks (in case of truncation)
+    text = re.sub(r'<(think|thinking|thought)>[\s\S]*$', '', text, flags=re.IGNORECASE)
+    return text.strip()
+
+
 # ── LLM call helper ───────────────────────────────────────────────────────────
 
 async def _ask_llm(prompt: str, max_tokens: int = 220) -> str:
     """Run a blocking LLM call in the thread pool. Returns the response string."""
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
+    raw = await loop.run_in_executor(
         None, lambda: _llm.generate(prompt, "", max_tokens=max_tokens)
     )
+    return _clean_think_tags(raw)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -420,7 +529,7 @@ async def _handle_medicine_query(query: str, q: str, medicines) -> str:
 
     if not valid_meds:
         return (
-            "I don't see any medicines in your records yet. 💊\n\n"
+            "I don't see any medicines in your records yet.\n\n"
             "You can add them from the **Medication Vault** on the home screen "
             "and I'll help you understand them right away!"
         )
@@ -509,19 +618,19 @@ Keep it friendly and easy to understand."""
             dose = f" ({med.dose})" if med.dose else ""
 
             blocks.append(
-                f"{i}. 💊 **{med.name}{dose}**\n"
+                f"{i}. **{med.name}{dose}**\n"
                 f"   • Purpose: {purpose}.\n"
                 f"   • When to take: {when}."
             )
 
-        return "\n\n".join(blocks) + "\n\nYou're doing a great job keeping track of your medicines 👍"
+        return "\n\n".join(blocks) + "\n\nYou're doing a great job keeping track of your medicines."
 
     if any(kw in q for kw in ("how many", "count", "number of")):
         count = len(valid_meds)
-        lines = "\n".join(f"{i}. 💊 **{m.name}**" + (f" ({m.dose})" if m.dose else "")
+        lines = "\n".join(f"{i}. **{m.name}**" + (f" ({m.dose})" if m.dose else "")
                           for i, m in enumerate(valid_meds, start=1))
         return (
-            f"You have **{count} medicine{'s' if count != 1 else ''}** logged 💊\n\n"
+            f"You have **{count} medicine{'s' if count != 1 else ''}** logged.\n\n"
             + lines
             + "\n\nAsk me about any of them and I'll explain what they do!"
         )
@@ -540,16 +649,16 @@ Keep it friendly and easy to understand."""
             lines = []
             for i, med in enumerate(filtered, start=1):
                 dose = f" ({med.dose})" if med.dose else ""
-                lines.append(f"{i}. 💊 **{med.name}{dose}**")
+                lines.append(f"{i}. **{med.name}{dose}**")
             return (
-                f"Your **{time_filter}** medicines ⏰\n\n"
+                f"Your **{time_filter}** medicines:\n\n"
                 + "\n\n".join(lines)
                 + "\n\nYou can ask me about any medicine here for a short explanation."
             )
         return (
             f"I don't see any medicines specifically scheduled for the {time_filter} "
             f"in your records. You have {len(valid_meds)} medicine(s) logged — "
-            "check the **Medication Vault** for the full schedule. 📋"
+            "check the **Medication Vault** for the full schedule."
         )
 
     if any(kw in q for kw in ("side effect", "side effects", "adverse",
@@ -574,11 +683,11 @@ Keep it short and calm."""
                 clean = "Mild stomach upset or headache"
 
             blocks.append(
-                f"{i}. 💊 **{med.name}**" + (f" ({med.dose})" if med.dose else "") + "\n"
+                f"{i}. **{med.name}**" + (f" ({med.dose})" if med.dose else "") + "\n"
                 f"   • Common side effects: {clean}."
             )
 
-        return "\n\n".join(blocks) + "\n\nAlways check with your doctor before making changes 😊"
+        return "\n\n".join(blocks) + "\n\nAlways check with your doctor before making changes."
 
     blocks = []
     for i, med in enumerate(valid_meds, start=1):
@@ -593,12 +702,12 @@ Keep it short and calm."""
         dose = f" ({med.dose})" if med.dose else ""
 
         blocks.append(
-            f"{i}. 💊 **{med.name}{dose}**\n"
+            f"{i}. **{med.name}{dose}**\n"
             f"   • Purpose: {purpose}.\n"
             f"   • When to take: {when}."
         )
 
-    return "\n\n".join(blocks) + "\n\nYou're doing a great job keeping track of your medicines 👍"
+    return "\n\n".join(blocks) + "\n\nYou're doing a great job keeping track of your medicines."
 
 
 
@@ -610,7 +719,7 @@ async def _handle_symptom_query(query: str, q: str,
 
     if not valid_active and not valid_history:
         return (
-            "I don't see any symptoms logged yet. 🩺\n\n"
+            "I don't see any symptoms logged yet.\n\n"
             "You can add them using the **Symptom Log** on the home screen. "
             "Once logged, I can give you helpful insights!"
         )
@@ -619,9 +728,9 @@ async def _handle_symptom_query(query: str, q: str,
     if any(kw in q for kw in ("history", "past", "previous", "resolved",
                                "old symptoms", "before", "had before")):
         if not valid_history:
-            return "You don't have any resolved symptoms in your history yet. ✅"
+            return "You don't have any resolved symptoms in your history yet."
         ctx = _build_symptom_context(valid_history)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant. 🩺
+        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
 
 The user is reviewing their past symptoms.
 
@@ -642,7 +751,7 @@ Rules:
         specific = _find_mentioned_symptom(q, valid_history)
     if specific:
         ctx = _build_symptom_context(specific)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant. 🩺
+        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
 
 The user is asking about a specific symptom.
 
@@ -653,20 +762,20 @@ User question: {query}
 
 Reply in this format:
 
-🩺 **[Symptom name]**
+ **[Symptom name]**
 • **Likely cause:** One short line.
 • **What you can do:** One practical home-care tip.
 • **See a doctor if:** One clear warning sign.
 
 Rules:
 - MAX 100 words
-- Flag high/critical severity with ⚠️
+- Flag high/critical severity with
 - Calm and reassuring — not alarming""", max_tokens=200)
 
     # ── No active symptoms ────────────────────────────────────────────────────
     if not valid_active:
         return (
-            "Great news — you have no active symptoms right now! ✅\n\n"
+            "Great news — you have no active symptoms right now!\n\n"
             + (f"You have **{len(valid_history)}** resolved symptom(s) in your history. "
                "Ask me about them anytime!" if valid_history else "")
         )
@@ -680,7 +789,7 @@ Rules:
             + (f" — {_duration_label(s.startedAt)}" if s.startedAt else "")
             for s in sorted(valid_active, key=_severity_order)
         )
-        return f"You have **{count} active symptom{'s' if count != 1 else ''}** 🩺\n\n{lines}"
+        return f"You have **{count} active symptom{'s' if count != 1 else ''}**.\n\n{lines}"
 
     # ── Severity / seriousness ────────────────────────────────────────────────
     if any(kw in q for kw in ("serious", "severe", "bad", "dangerous",
@@ -689,7 +798,7 @@ Rules:
                     if (s.severity or "").lower() in ("critical", "severe", "high")]
         if critical:
             ctx = _build_symptom_context(critical)
-            return await _ask_llm(f"""You are Dr. Aria, a warm but precise health assistant. 🩺
+            return await _ask_llm(f"""You are Dr. Aria, a warm but precise health assistant.
 
 The user is concerned about the severity of their symptoms.
 
@@ -701,11 +810,11 @@ Rules:
 - For each: state the concern level and ONE clear action
 - Recommend seeing a doctor where appropriate
 - MAX 3 bullet points, MAX 100 words
-- Use ⚠️ for high, 🔴 for critical""", max_tokens=180)
+- Use for high, for critical""", max_tokens=180)
         return (
-            "Your current symptoms are not flagged as high severity. ✅\n\n"
+            "Your current symptoms are not flagged as high severity.\n\n"
             "That said, trust how you feel — if anything gets worse, "
-            "don't hesitate to see a doctor. Take care! 😊"
+            "don't hesitate to see a doctor. Take care!"
         )
 
     # ── Duration ──────────────────────────────────────────────────────────────
@@ -718,14 +827,14 @@ Rules:
             if dur: line += f" — for **{dur}**"
             if s.severity: line += f" ({s.severity})"
             lines.append(line)
-        return "Here's how long your symptoms have been active ⏱️\n\n" + "\n".join(lines)
+        return "Here's how long your symptoms have been active \n\n" + "\n".join(lines)
 
     # ── Home remedies / what to do ────────────────────────────────────────────
     if any(kw in q for kw in ("what can i do", "what should i do",
                                "home remedy", "home remedies", "relief",
                                "treat", "treatment", "help with")):
         ctx = _build_symptom_context(valid_active)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and practical health assistant. 🩺
+        return await _ask_llm(f"""You are Dr. Aria, a warm and practical health assistant.
 
 The user wants home-care advice for their symptoms.
 
@@ -735,9 +844,9 @@ Active symptoms:
 Reply in this format:
 
 For each symptom:
-🌿 **[Symptom]:** One specific, practical home-care tip.
+ **[Symptom]:** One specific, practical home-care tip.
 
-⚠️ **See a doctor if:**
+ **See a doctor if:**
 • [Warning sign 1]
 • [Warning sign 2]
 
@@ -745,18 +854,18 @@ Rules:
 - MAX 5 items total, MAX 120 words
 - Practical and specific — not generic
 - Warm, helpful tone
-- End with: "See a doctor if symptoms worsen or persist beyond 48 hours. 💙" """, max_tokens=200)
+- End with: "See a doctor if symptoms worsen or persist beyond 48 hours. " """, max_tokens=200)
 
     # ── Default: full symptom overview ────────────────────────────────────────
     ctx = _build_symptom_context(valid_active)
     has_critical = any((s.severity or "").lower() in ("critical", "severe")
                        for s in valid_active)
     severity_note = (
-        "⚠️ One or more symptoms are flagged critical/severe. Recommend seeing a doctor."
+        " One or more symptoms are flagged critical/severe. Recommend seeing a doctor."
         if has_critical else ""
     )
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant. 🩺
+    return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
 
 Active symptoms:
 {ctx}
@@ -766,20 +875,20 @@ User question: {query}
 
 Reply in this exact format:
 
-📋 **Here's a summary of your symptoms:**
+ **Here's a summary of your symptoms:**
 
 For each symptom:
-• **[Name]** [severity icon: ✅mild / ⚠️moderate / 🔴critical]
+• **[Name]** [severity icon:mild /moderate /critical]
   — Likely cause: [1 short line]
   — What to do: [1 actionable tip]
 
-⚠️ **See a doctor if:** [2 clear warning signs]
+ **See a doctor if:** [2 clear warning signs]
 
 Rules:
 - MAX 130 words
 - Short, clear sentences
 - Friendly and reassuring — not clinical
-- Flag critical symptoms with 🔴""", max_tokens=260)
+- Flag critical symptoms with""", max_tokens=260)
 
 
 # ── 3. Food / lifestyle interaction queries ───────────────────────────────────
@@ -798,7 +907,7 @@ async def _handle_food_lifestyle_query(query: str, q: str, medicines, active_sym
 
     if not valid_meds and not valid_symptoms:
         return (
-            "I don't see any medicines or symptoms in your records to check against. 💊🩺\n\n"
+            "I don't see any medicines or symptoms in your records to check against.\n\n"
             "Add them from the **Medication Vault** and **Symptom Log** and I can give you "
             "personalised food and lifestyle advice!"
         )
@@ -811,7 +920,7 @@ async def _handle_food_lifestyle_query(query: str, q: str, medicines, active_sym
     if specific:
         med_ctx = _build_enriched_medicine_context(specific)
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and knowledgeable health assistant. 🩺
+    return await _ask_llm(f"""You are Dr. Aria, a warm and knowledgeable health assistant.
 
 The user has a food or lifestyle question related to their medicines and symptoms.
 
@@ -825,7 +934,7 @@ User question: {query}
 
 Reply in this format:
 
-🍽️ **Quick answer:** [Yes / No / It depends — one sentence]
+ **Quick answer:** [Yes / No / It depends — one sentence]
 
 • **Why:** [One clear explanation based on their specific medicines and symptoms]
 • **What to do:** [One practical, specific tip]
@@ -837,7 +946,7 @@ Rules:
 - If there are no relevant symptoms, keep the answer focused on medicines only
 - MAX 100 words
 - Friendly, reassuring tone — not scary
-- End with: "When in doubt, always check with your doctor or pharmacist! 😊" """, max_tokens=200)
+- End with: "When in doubt, always check with your doctor or pharmacist!" """, max_tokens=200)
 
 # ── 4. Cross-domain: medicine + symptom reasoning ────────────────────────────
 
@@ -858,7 +967,7 @@ async def _handle_cross_domain_query(query: str, q: str,
     if not valid_meds and not valid_syms:
         return (
             "I'd love to help connect the dots, but I don't see any medicines "
-            "or symptoms in your records yet. 🩺\n\n"
+            "or symptoms in your records yet.\n\n"
             "Add them from the home screen and I can give you personalised insights!"
         )
     if not valid_meds:
@@ -875,7 +984,7 @@ async def _handle_cross_domain_query(query: str, q: str,
     focused_med_ctx = _build_medicine_context(specific_med) if specific_med else med_ctx
     focused_sym_ctx = _build_symptom_context(specific_sym) if specific_sym else sym_ctx
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and analytical health assistant. 🩺
+    return await _ask_llm(f"""You are Dr. Aria, a warm and analytical health assistant.
 
 The user wants to understand whether their medicines and symptoms might be connected.
 
@@ -889,13 +998,13 @@ User question: {query}
 
 Think carefully and reply in this format:
 
-🔍 **Connection Analysis**
+ **Connection Analysis**
 
 • **Likely related?** [Yes / Possibly / Unlikely — one sentence explaining why]
 • **What this means:** [One clear, reassuring explanation]
 • **What to do:** [One concrete next step — e.g., "mention this to your doctor at your next visit"]
 
-⚕️ **Important:** [One brief safety note if needed, otherwise skip this line]
+ **Important:** [One brief safety note if needed, otherwise skip this line]
 
 Rules:
 - Reason specifically about the medicines and symptoms listed
@@ -904,7 +1013,7 @@ Rules:
 - MAX 120 words
 - Calm, analytical, and friendly — not alarming
 - Never diagnose — only reason about possible connections
-- End with: "Your doctor is the best person to confirm this. 💙" """, max_tokens=240)
+- End with: "Your doctor is the best person to confirm this. " """, max_tokens=240)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -971,10 +1080,10 @@ async def greeting():
 async def health():
     return {
         "status":          "ok",
-        "version":         "3.0.0",
+        "version":         "3.2.0",
         "llm_loaded":      (_llm is not None and _llm._loaded),
         "embedder_loaded": (_embedder is not None and _embedder._loaded),
-        "model":           "Qwen2.5-14B-Instruct-Q5_K_M",
+        "model":           Path(LLM_MODEL_PATH).stem,
     }
 
 
@@ -982,18 +1091,18 @@ async def health():
 async def server_info():
     port = int(os.environ.get("PORT", 8000))
     return {
-        "server":          "Health AI v3",
+        "server":          "Health AI v3.2",
         "character":       "Dr. Aria",
         "lan_ip":          _get_local_ip(),
         "port":            port,
         "llm_ready":       (_llm is not None and _llm._loaded),
         "embedder_ready":  (_embedder is not None and _embedder._loaded),
-        "model":           "Qwen2.5-14B-Instruct-Q5_K_M",
-        "embedding_model": "all-MiniLM-L6-v2",
+        "model":           Path(LLM_MODEL_PATH).stem,
+        "embedding_model": EMBEDDING_MODEL_NAME,
     }
 
 
-@app.post("/upload-and-embed", response_model=UploadResponse, tags=["Documents"])
+@app.post("/upload-and-embed", response_model=UploadResponse, tags=["Documents"], dependencies=[Depends(require_api_key)])
 async def upload_and_embed(file: UploadFile = File(...)):
     filename = file.filename or "upload"
     ext      = Path(filename).suffix.lower()
@@ -1006,14 +1115,26 @@ async def upload_and_embed(file: UploadFile = File(...)):
         )
 
     suffix = ext or ".tmp"
+    MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
+    content = bytearray()
+    
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        content.extend(chunk)
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File too large (exceeds 25MB limit)")
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(await file.read())
+        tmp.write(content)
         tmp_path = tmp.name
 
     try:
-        log.info(f"Processing upload: {filename}")
+        safe_filename = filename.replace("\n", "\\n").replace("\r", "\\r")
+        log.info(f"Processing upload: {safe_filename}")
         try:
-            text = _reader.extract(tmp_path)
+            text = await asyncio.to_thread(_reader.extract, tmp_path)
         except UnsupportedFileTypeError as e:
             raise HTTPException(status_code=415, detail=str(e))
         except EmptyDocumentError as e:
@@ -1022,7 +1143,8 @@ async def upload_and_embed(file: UploadFile = File(...)):
             raise HTTPException(status_code=422, detail=str(e))
 
         doc_type = _reader.detect_doc_type(filename)
-        chunks   = _chunker.chunk(text, {"filename": filename, "doc_type": doc_type})
+        from health_ai.rag.document_processor import process_document
+        chunks   = process_document(text, doc_type, {"filename": filename, "doc_type": doc_type}, _chunker)
 
         if not chunks:
             raise HTTPException(status_code=422,
@@ -1033,7 +1155,7 @@ async def upload_and_embed(file: UploadFile = File(...)):
         except EmbeddingError as e:
             raise HTTPException(status_code=500, detail=f"Embedding failed: {e}")
 
-        log.info(f"✅ {filename} → {len(chunks)} chunks, doc_type={doc_type}")
+        log.info(f"[success] {filename} -> {len(chunks)} chunks, doc_type={doc_type}")
 
         return UploadResponse(
             status="success",
@@ -1056,7 +1178,7 @@ async def upload_and_embed(file: UploadFile = File(...)):
             pass
 
 
-@app.post("/embed-query", response_model=EmbedQueryResponse, tags=["RAG"])
+@app.post("/embed-query", response_model=EmbedQueryResponse, tags=["RAG"], dependencies=[Depends(require_api_key)])
 async def embed_query(request: EmbedQueryRequest):
     try:
         vec = _embedder.embed_single(request.query)
@@ -1065,9 +1187,48 @@ async def embed_query(request: EmbedQueryRequest):
     return EmbedQueryResponse(query=request.query, embedding=vec, dim=len(vec))
 
 
+# Rate limiting for AI chatbot endpoint: max 60 requests per minute per authenticated client
+import collections
+_chatbot_rate_log: Dict[str, collections.deque] = {}
+CHATBOT_LIMIT_MAX = 60
+CHATBOT_LIMIT_WINDOW = 60
+
+def _check_chatbot_rate_limit(ident: str):
+    now = _time.time()
+    if ident not in _chatbot_rate_log:
+        _chatbot_rate_log[ident] = collections.deque()
+    dq = _chatbot_rate_log[ident]
+    while dq and now - dq[0] > CHATBOT_LIMIT_WINDOW:
+        dq.popleft()
+    if len(dq) >= CHATBOT_LIMIT_MAX:
+        wait = int(CHATBOT_LIMIT_WINDOW - (now - dq[0]))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please wait {wait} seconds."
+        )
+    dq.append(now)
+
 
 @app.post("/generate", response_model=GenerateResponse, tags=["Generation"])
-async def generate(request: GenerateRequest):
+async def generate(request: GenerateRequest, http_request: Request, auth: dict = Depends(require_api_key)):
+    # Rate limit on user ID or authorization type
+    ident = auth.get("uid") or auth.get("auth_type", "anonymous")
+    _check_chatbot_rate_limit(ident)
+
+    # ── Prompt Injection / Bypass Instructions Detection ──────────────────────
+    if detect_prompt_injection(request.query):
+        log.warning(f"Prompt injection / instruction bypass detected: {request.query!r}")
+        return GenerateResponse(response=BYPASS_ATTEMPT_RESPONSE, intent="off_topic")
+
+    # ── Instant Emergency Short-Circuit Bypass (Bypass LLM completely) ────────
+
+    if detect_red_flags(request.query):
+        emergency_reply = (
+            "I detected critical symptoms or emergency keywords in your query. "
+            "For your safety, I have bypassed the AI text generation."
+            f"{URGENT_NOTICE}{DISCLAIMER}"
+        )
+        return GenerateResponse(response=emergency_reply, intent="urgent")
 
     if _llm is None or not _llm._loaded:
         raise HTTPException(status_code=503,
@@ -1075,6 +1236,11 @@ async def generate(request: GenerateRequest):
 
     # ── Instant intent responses — no LLM needed ──────────────────────────────
     intent = classify_intent(request.query)
+
+    # If the query intent is off_topic but there is conversation history, reclassify it as general
+    # so that the user query can fall through to the LLM and be processed in the context of the history.
+    if intent == "off_topic" and request.history:
+        intent = "general"
 
     # greeting/farewell still first (safe)
     if intent == "greeting":
@@ -1113,25 +1279,61 @@ async def generate(request: GenerateRequest):
 
     # ── Normal LLM path ───────────────────────────────────────────────────────
     trimmed_history = (request.history[-(MAX_HISTORY_TURNS * 2):]
-                       if request.history else [])
+                       if (request.history and MAX_HISTORY_TURNS > 0) else [])
 
     system_prompt = get_system_prompt(intent)
+    if request.patient_context and request.patient_context.situation:
+        sit = request.patient_context.situation.strip()
+        system_prompt += (
+            f"\n\n[USER SITUATION & EMOTION]\n"
+            f"The patient's current situation is: {sit}\n"
+            f"Adjust your tone, style, and emotional response to match and mirror this context. "
+            f"If they are happy, cheerful, or reporting positive recovery, match their energy with a warm, celebratory, and happy tone. "
+            f"If they are anxious, be calm and reassuring. If they are in pain or distressed, be empathetic, clear, and direct."
+        )
+
     max_tokens    = get_max_tokens(intent)
     user_prompt   = build_context(request.query, request.chunks, trimmed_history)
 
-    log.info(f"Generate [{intent}] — {len(request.chunks)} chunks, "
+    t_start = _time.time()
+    time_str_start = _time.strftime('%H:%M:%S', _time.localtime(t_start))
+    log.info(f"[request] LLM Generation [{intent}] requested at {time_str_start} - {len(request.chunks)} chunks, "
              f"history={len(trimmed_history)//2} turns, max_tokens={max_tokens}")
+
+    import threading
+    stop_event = threading.Event()
+
+    async def watch_disconnect():
+        while not stop_event.is_set():
+            if await http_request.is_disconnected():
+                stop_event.set()
+                log.info("Client disconnected. Signalling stop_event to LLM generator.")
+                break
+            await asyncio.sleep(0.5)
+
+    meta = {}
+    watcher = asyncio.create_task(watch_disconnect())
 
     loop = asyncio.get_running_loop()
     try:
         response = await loop.run_in_executor(
             None,
-            lambda: _llm.generate(system_prompt, user_prompt, max_tokens=max_tokens),
+            lambda: _llm.generate(system_prompt, user_prompt, max_tokens=max_tokens, stop_event=stop_event, meta=meta),
         )
     except GenerationError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        stop_event.set()
+        await watcher
+
+    t_end = _time.time()
+    time_str_end = _time.strftime('%H:%M:%S', _time.localtime(t_end))
+    t_start_actual = meta.get("t_start", t_start)
+    duration = t_end - t_start_actual
+    log.info(f"[success] LLM Generation [{intent}] finished at {time_str_end} (took {duration:.2f}s)")
 
     response = apply_safety_layer(response, request.query)
+    response = _clean_think_tags(response)
     return GenerateResponse(response=response, intent=intent)
 
 
@@ -1139,26 +1341,35 @@ async def generate(request: GenerateRequest):
 
 
 @app.post("/generate/{profile_id}", response_model=GenerateResponse, tags=["v2 compat"])
-async def generate_compat(profile_id: str, request: GenerateRequest):
+async def generate_compat(profile_id: str, request: GenerateRequest, http_request: Request, auth: dict = Depends(require_api_key)):
     log.info(f"v2 compat: /generate/{profile_id}")
-    return await generate(request)
+    return await generate(request, http_request, auth)
 
 
 @app.post("/query/{profile_id}", response_model=GenerateResponse, tags=["v2 compat"])
-async def query_compat(profile_id: str, request: GenerateRequest):
+async def query_compat(profile_id: str, request: GenerateRequest, http_request: Request, auth: dict = Depends(require_api_key)):
     log.info(f"v2 compat: /query/{profile_id}")
-    return await generate(request)
+    return await generate(request, http_request, auth)
 
 
 @app.post("/upload-and-embed/{profile_id}", response_model=UploadResponse,
-          tags=["v2 compat"])
+          tags=["v2 compat"], dependencies=[Depends(require_api_key)])
 async def upload_compat(profile_id: str, file: UploadFile = File(...)):
     log.info(f"v2 compat: /upload-and-embed/{profile_id}")
     return await upload_and_embed(file)
 
 
 @app.post("/embed-query/{profile_id}", response_model=EmbedQueryResponse,
-          tags=["v2 compat"])
+          tags=["v2 compat"], dependencies=[Depends(require_api_key)])
 async def embed_query_compat(profile_id: str, request: EmbedQueryRequest):
     log.info(f"v2 compat: /embed-query/{profile_id}")
     return await embed_query(request)
+
+
+@app.get("/", response_class=HTMLResponse, tags=["UI"])
+async def serve_chat():
+    """Serves the Dr. Aria Health Portal UI directly on the root path."""
+    chat_html_path = Path(__file__).resolve().parents[2] / "chat.html"
+    if chat_html_path.exists():
+        return HTMLResponse(content=chat_html_path.read_text(encoding="utf-8"))
+    raise HTTPException(status_code=404, detail="chat.html not found on server")

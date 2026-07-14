@@ -1,7 +1,7 @@
 """
 embedder.py — Singleton embedding model for Health AI v3.
 
-Model: all-MiniLM-L6-v2 (90 MB, 384-dimensional, L2-normalised output)
+Model: BAAI/bge-small-en-v1.5 (130 MB, 384-dimensional, L2-normalised output)
 
 Why a singleton:
     Loading SentenceTransformer takes ~1–2 seconds. We load it once at
@@ -94,8 +94,10 @@ class EmbeddingModel:
 
     def embed_single(self, text: str) -> list[float]:
         """
-        Embed a single string and return a plain Python list of floats.
+        Embed a single query string and return a plain Python list of floats.
+        Prepends the recommended BGE search instruction prefix for retrieval.
         Convenient for JSON serialisation in API responses.
         """
-        arr = self.embed([text])
+        query_text = f"Represent this sentence for searching relevant passages: {text}"
+        arr = self.embed([query_text])
         return arr[0].tolist()

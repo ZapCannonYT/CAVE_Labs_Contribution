@@ -26,6 +26,25 @@ from health_ai.core.character import MAX_HISTORY_TURNS
 log = get_logger(__name__)
 
 
+def _strip_safety_boilerplate(text: str) -> str:
+    """Removes standard disclaimer and urgent notice from assistant responses in history."""
+    if not text:
+        return ""
+    # Strip standard emergency disclaimer start
+    text = text.split("\n\n---\n*Dr. Aria")[0]
+    text = text.split("\n\n**URGENT")[0]
+    return text.strip()
+
+
+def sanitize_prompt_input(text: str) -> str:
+    """Strips control and ChatML tokens to prevent prompt injection."""
+    if not text:
+        return ""
+    for token in ["<|im_start|>", "<|im_end|>", "<|endoftext|>", "<|im_sep|>", "[PATIENT DATA]", "[CONVERSATION HISTORY]"]:
+        text = text.replace(token, "")
+    return text.strip()
+
+
 def build_context(
     query: str,
     chunks: List[str],
@@ -47,14 +66,19 @@ def build_context(
     sections: List[str] = []
 
     # ── Conversation history ──────────────────────────────────────────────────
-    if history:
+    if history and MAX_HISTORY_TURNS > 0:
         # Take last MAX_HISTORY_TURNS complete turns (user + AI = 2 entries)
         recent = history[-(MAX_HISTORY_TURNS * 2):]
         history_lines = []
         for i, msg in enumerate(recent):
             role = "User" if i % 2 == 0 else "Dr. Aria"
-            history_lines.append(f"{role}: {msg.strip()}")
-        sections.append("[CONVERSATION HISTORY]\n" + "\n".join(history_lines))
+            content = msg.strip()
+            if role == "Dr. Aria":
+                content = _strip_safety_boilerplate(content)
+            content = sanitize_prompt_input(content)
+            history_lines.append(f"{role}: {content}")
+        if history_lines:
+            sections.append("[CONVERSATION HISTORY]\n" + "\n".join(history_lines))
 
     # ── Patient data (retrieved chunks) ──────────────────────────────────────
     if chunks:
@@ -62,7 +86,7 @@ def build_context(
         seen = set()
         unique_chunks = []
         for c in chunks:
-            c_stripped = c.strip()
+            c_stripped = sanitize_prompt_input(c)
             if c_stripped and c_stripped not in seen:
                 seen.add(c_stripped)
                 unique_chunks.append(c_stripped)
@@ -73,6 +97,6 @@ def build_context(
             log.debug(f"Context includes {len(unique_chunks)} unique chunks.")
 
     # ── Current question ──────────────────────────────────────────────────────
-    sections.append(f"[QUESTION]\n{query.strip()}")
+    sections.append(f"[QUESTION]\n{sanitize_prompt_input(query)}")
 
     return "\n\n".join(sections)

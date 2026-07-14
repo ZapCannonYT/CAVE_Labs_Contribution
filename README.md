@@ -135,12 +135,12 @@ pip install -r requirements.txt
 ```
 
 ### 4. Setup LLM Model
-1. Download the Qwen3 4B GGUF model: **`Qwen3-4B-Q4_K_M.gguf`** (2.5 GB).
+1. Download the Qwen3 30B GGUF model: **`Qwen3-30B-A3B.gguf`**.
 2. Place the GGUF file in: `health_ai/model/`
 3. Configure the active filename in `health_ai/config/settings.py` via `LLM_MODEL_PATH`.
 
 > [!IMPORTANT]
-> The dynamic model loader [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) automatically handles both single-file models (like `Qwen3-4B-Q4_K_M.gguf`) and split-file model shards (like `qwen2.5-14b-instruct-q5_k_m-00001-of-00003.gguf`). If using split shards, point the model path to shard 1; the loader will locate and verify the other shards.
+> The dynamic model loader [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) automatically handles both single-file models (like `Qwen3-30B-A3B.gguf`) and split-file model shards (like `qwen2.5-14b-instruct-q5_k_m-00001-of-00003.gguf`). If using split shards, point the model path to shard 1; the loader will locate and verify the other shards.
 
 ---
 

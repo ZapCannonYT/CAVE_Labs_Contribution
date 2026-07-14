@@ -115,7 +115,7 @@ This document records the chronological development and implementation of all ar
 ### 13. Dynamic Model Shard Auto-Verification
 - **Description:** Enabled the engine to load single-file model weights dynamically while maintaining shard verification for multi-file models.
 - **Key Deliverables:** Re-engineered the loader inside [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) to check for split model file shards *only* when the primary filename ends with `"00001-of-00003"`.
-- **Technical Impact:** Allows single-file models (like `Qwen3-4B-Q4_K_M.gguf`) to bypass shard checks and start up cleanly, resolving the startup crash.
+- **Technical Impact:** Allows single-file models (like `Qwen3-30B-A3B.gguf`) to bypass shard checks and start up cleanly, resolving the startup crash.
 
 ---
 

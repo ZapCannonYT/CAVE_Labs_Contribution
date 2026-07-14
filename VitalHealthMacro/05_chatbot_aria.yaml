@@ -1,0 +1,43 @@
+appId: com.monish2005.vitalhealth
+---
+# Reset and launch
+- clearState
+- launchApp
+
+# ==========================================
+# 1. SIGN IN FLOW
+# ==========================================
+- assertVisible: "VitalHealth"
+- tapOn: "I already have an account"
+- assertVisible: "Sign In"
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com"
+- tapOn:
+    text: "••••••••"
+    below: "Password"
+- inputText: "password123"
+- tapOn: "Sign In"
+
+# Wait for Dashboard
+- assertVisible: "Dashboard"
+
+# ==========================================
+# 2. TEST CHATBOT (DR. ARIA)
+# ==========================================
+- tapOn: "Dr. Aria"
+- assertVisible: "Dr. Aria"
+- takeScreenshot: 40_dr_aria_chat_empty
+
+# Input question
+- tapOn: "Message Dr. Aria..."
+- inputText: "What is blood pressure?"
+
+# Send query
+- tapOn: "send_btn"
+- assertVisible: "What is blood pressure?"
+
+# Wait for AI response (allow up to 10 seconds for RAG/FastAPI/LLM processing)
+- delay: 5000
+- takeScreenshot: 41_dr_aria_chat_response

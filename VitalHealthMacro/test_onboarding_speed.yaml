@@ -1,0 +1,10 @@
+appId: com.monish2005.vitalhealth
+---
+# Start the app clean to initialize the profile
+- clearState
+- launchApp
+
+# Execute Onboarding Sub-Flows 01, 02, 03
+- runFlow: sub_flows/01_welcome_signup.yaml
+- runFlow: sub_flows/02_personal_info.yaml
+- runFlow: sub_flows/03_medical_info.yaml

@@ -1,0 +1,77 @@
+appId: com.monish2005.vitalhealth
+---
+# Reset and launch
+- clearState
+- launchApp
+
+# ==========================================
+# 1. SIGN IN FLOW
+# ==========================================
+- assertVisible: "VitalHealth"
+- tapOn: "I already have an account"
+- assertVisible: "Sign In"
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com"
+- tapOn:
+    text: "••••••••"
+    below: "Password"
+- inputText: "password123"
+- tapOn: "Sign In"
+
+# Wait for Dashboard
+- assertVisible: "Dashboard"
+
+# ==========================================
+# 2. TEST SYMPTOM LOGGING
+# ==========================================
+- tapOn: "Log New"
+- assertVisible: "Symptom Log"
+- takeScreenshot: 30_symptom_log_menu
+
+- tapOn: "HEADACHE"
+- assertVisible: "What symptoms are you experiencing?"
+- takeScreenshot: 31_symptom_options
+
+- tapOn: "Throbbing/Pulsating"
+- tapOn: "Next: Answer Questions"
+
+# Answer questions
+- assertVisible: "How long have you had this headache?"
+- tapOn: "Less than 4 hours"
+
+- assertVisible: "How often do you get headaches?"
+- tapOn: "First time"
+
+- assertVisible: "Do you feel nauseous or have you vomited?"
+- tapOn: "No"
+
+- assertVisible: "Are you sensitive to light or sound?"
+- tapOn: "No"
+
+- assertVisible: "Did you experience any visual disturbances before the headache (flashing lights, blind spots)?"
+- tapOn: "No"
+
+- assertVisible: "Have you taken any pain medication?"
+- tapOn: "No"
+
+- assertVisible: "What triggers your headache?"
+- tapOn: "Stress"
+
+- assertVisible: "On a scale of 1-10, how would you rate your pain?"
+- tapOn: "5"
+
+# Verify Recommendation Analysis page
+- assertVisible: "Recommendation"
+- takeScreenshot: 32_symptom_analysis
+
+# Save symptom log
+- tapOn: "Log Symptom & Track"
+- assertVisible: "Symptom Logged"
+- takeScreenshot: 33_symptom_save_success
+- tapOn: "Go to Home"
+
+# Verify returned to Dashboard
+- assertVisible: "Dashboard"
+- assertVisible: "Live Telemetry"

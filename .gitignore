@@ -50,3 +50,6 @@ health_ai/model/.cache/
 # IDE settings
 .vscode/
 .idea/
+
+# Maestro CLI binaries
+VitalHealthMacro/maestro-cli/

@@ -1,0 +1,123 @@
+appId: com.monish2005.vitalhealth
+---
+# Reset and launch
+- clearState
+- launchApp
+
+# ==========================================
+# 1. SIGN IN FLOW
+# ==========================================
+- assertVisible: "VitalHealth"
+- takeScreenshot: .maestro/screenshots/01_welcome
+- tapOn: "I already have an account"
+- assertVisible: "Sign In"
+- takeScreenshot: .maestro/screenshots/02_signin
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com"
+- tapOn:
+    text: "••••••••"
+    below: "Password"
+- inputText: "password123"
+- tapOn: "Sign In"
+
+# Wait for Dashboard
+- assertVisible: "Dashboard"
+- assertVisible: "Live Telemetry"
+- takeScreenshot: .maestro/screenshots/03_dashboard
+
+# ==========================================
+# 2. TEST DASHBOARD TELEMETRY BUTTONS
+# ==========================================
+
+# Active Steps Card
+- tapOn: "ACTIVE STEPS"
+- assertVisible: "Step Intelligence"
+- takeScreenshot: .maestro/screenshots/04_step_intelligence
+- tapOn: "Back"
+
+# Heart Rate Card
+- tapOn: "HEART RATE"
+- assertVisible: "Start Measurement"
+- takeScreenshot: .maestro/screenshots/05_heart_scanner
+- tapOn: "Back"
+
+# Oxygen Saturation Card
+- tapOn: "OXYGEN SAT."
+- assertVisible: "SpO2 Scanner"
+- takeScreenshot: .maestro/screenshots/06_spo2_scanner
+- tapOn: "Back"
+
+# Daily Burn Card
+- tapOn: "DAILY BURN"
+- assertVisible: "Calorie Intelligence"
+- takeScreenshot: .maestro/screenshots/07_calorie_intelligence
+- tapOn: "Back"
+
+# ==========================================
+# 3. TEST MEDICATION VAULT BUTTONS
+# ==========================================
+- tapOn: "Manage Vault"
+- assertVisible: "Medications"
+- takeScreenshot: .maestro/screenshots/08_medication_vault
+
+# Tap Add Medicine Button
+- tapOn: "AddMedicine"
+- assertVisible: "New Medication"
+- takeScreenshot: .maestro/screenshots/09_add_medicine
+# Discard/Cancel Add Medicine
+- tapOn: "DISCARD"
+
+# Back to Dashboard
+- tapOn: "Back"
+
+# ==========================================
+# 4. TEST SYMPTOM SIGNALS FLOWS
+# ==========================================
+- tapOn: "Log New"
+- assertVisible: "Symptom Signals"
+- takeScreenshot: .maestro/screenshots/10_symptom_signals
+
+# Go back to Dashboard
+- tapOn: "Back"
+
+# ==========================================
+# 5. TEST DIGITAL TWIN TABS & QUICK LOGGING
+# ==========================================
+- tapOn: "Twin"
+- assertVisible: "PHYSIOLOGICAL DIGITAL TWIN"
+- takeScreenshot: .maestro/screenshots/11_digital_twin
+
+# ==========================================
+# 6. TEST OTHER TAB NAVIGATION
+# ==========================================
+
+# Insights Tab
+- tapOn: "Insights"
+- assertVisible: "Insights"
+- takeScreenshot: .maestro/screenshots/12_insights
+
+# Documents / Vault Tab
+- tapOn: "Vault"
+- assertVisible: "Medical Vault"
+- takeScreenshot: .maestro/screenshots/13_vault
+
+# Dr. Aria AI Health Chatbot
+- tapOn: "Dr. Aria"
+- assertVisible: "Dr. Aria"
+- takeScreenshot: .maestro/screenshots/14_dr_aria
+
+# Back to Dashboard
+- tapOn: "Dashboard"
+
+# ==========================================
+# 7. TEST SETTINGS & SUBMENUS
+# ==========================================
+- tapOn: "settings"
+- assertVisible: "Settings"
+- takeScreenshot: .maestro/screenshots/15_settings
+
+# Finally return to Dashboard
+- tapOn: "Back"
+- assertVisible: "Dashboard"

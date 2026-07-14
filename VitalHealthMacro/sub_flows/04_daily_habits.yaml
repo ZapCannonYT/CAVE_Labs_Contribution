@@ -1,0 +1,228 @@
+appId: com.monish2005.vitalhealth
+---
+# ==========================================
+# 5. DAILY HABITS (Step 3 of 4)
+# ==========================================
+- assertVisible: "Daily Habits"
+- takeScreenshot: .maestro/screenshots/06_daily_habits
+
+# ── SAFEGUARD: Swipe DOWN twice to force-scroll the page all the way to the top ──
+- swipe:
+    start: 50%, 30%
+    end: 50%, 80%
+- swipe:
+    start: 50%, 30%
+    end: 50%, 80%
+
+# Evaluate current minutes to see if we are near the end of the hour (>= 45)
+- runScript: ../checkTime.js
+
+# ── 1. Enter the first 4 timers ──
+
+# Wake Up
+- tapOn:
+    text: "[0-9]+:[0-9]+ (AM|PM)"
+    index: 0
+- runFlow:
+    file: swipe_hour.yaml
+    when:
+      true: ${ output.currentMin >= 45 }
+- swipe:
+    start: 60%, 60%
+    end: 60%, 40%
+- tapOn: "Done"
+- runScript: ../sleep500ms.js
+
+# Breakfast
+- tapOn:
+    text: "[0-9]+:[0-9]+ (AM|PM)"
+    index: 1
+- runFlow:
+    file: swipe_hour.yaml
+    when:
+      true: ${ output.currentMin >= 45 }
+- swipe:
+    start: 60%, 40%
+    end: 60%, 60%
+- tapOn: "Done"
+- runScript: ../sleep500ms.js
+
+# Lunch
+- tapOn:
+    text: "[0-9]+:[0-9]+ (AM|PM)"
+    index: 2
+- runFlow:
+    file: swipe_hour.yaml
+    when:
+      true: ${ output.currentMin >= 45 }
+- tapOn: "Done"
+- runScript: ../sleep500ms.js
+
+# Dinner
+- tapOn:
+    text: "[0-9]+:[0-9]+ (AM|PM)"
+    index: 3
+- runFlow:
+    file: swipe_hour.yaml
+    when:
+      true: ${ output.currentMin >= 45 }
+- tapOn: "Done"
+- runScript: ../sleep500ms.js
+
+# ── 2. Make night (Sleep) centered, enter night ──
+- scrollUntilVisible:
+    element: "Sleep"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+
+# Sleep (Night)
+- tapOn:
+    text: "[0-9]+:[0-9]+ (AM|PM)"
+    index: 4
+- runFlow:
+    file: swipe_hour.yaml
+    when:
+      true: ${ output.currentMin >= 45 }
+- tapOn: "Done"
+- runScript: ../sleep500ms.js
+
+# ── 3. Enter water intake ──
+- tapOn:
+    text: "3L"
+    below: "Daily Water Intake"
+
+# ── 4. Center to activity level, enter that ──
+- scrollUntilVisible:
+    element: "Activity Level"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+
+- tapOn:
+    text: "Moderate"
+    below: "Activity Level"
+
+# ── 5. Centre to what best describes your diet, enter that ──
+- scrollUntilVisible:
+    element: "What best describes your diet?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+
+- tapOn:
+    text: "Vegetarian"
+    below: "What best describes your diet?"
+
+# ── 6. Subsequent elements centered ──
+
+# Meals Freq
+- scrollUntilVisible:
+    element: "How many times do you eat in a day?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "3 meals"
+    below: "How many times do you eat in a day?"
+
+# Snacking
+- scrollUntilVisible:
+    element: "How often do you snack between meals?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Rarely"
+    below: "How often do you snack between meals?"
+
+# Cooking Freq
+- scrollUntilVisible:
+    element: "How often do you cook at home?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Often"
+    below: "How often do you cook at home?"
+
+# Eating Out
+- scrollUntilVisible:
+    element: "How often do you eat out or order in?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Rarely"
+    below: "How often do you eat out or order in?"
+
+# Allergies
+- scrollUntilVisible:
+    element: "Any food allergies or intolerances?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "None"
+    below: "Any food allergies or intolerances?"
+
+# Cuisines
+- scrollUntilVisible:
+    element: "Which cuisines do you love most?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Indian"
+    below: "Which cuisines do you love most?"
+
+# Fav Foods
+- scrollUntilVisible:
+    element: "What are your absolute favourite foods?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Tap to choose your favourites.*"
+    below: "What are your absolute favourite foods?"
+- tapOn: "Biryani"
+- tapOn: "Paneer dishes"
+- tapOn: "Done  ✓"
+- runScript: ../sleep500ms.js
+
+# Goal
+- scrollUntilVisible:
+    element: "What's your main food goal right now?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Lose weight"
+    below: "What's your main food goal right now?"
+
+# Meal Prep
+- scrollUntilVisible:
+    element: "Do you meal prep in advance?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Occasionally"
+    below: "Do you meal prep in advance?"
+
+# Hydration Style
+- scrollUntilVisible:
+    element: "How do you usually drink water?"
+    direction: DOWN
+    speed: "10"
+    centerElement: true
+- tapOn:
+    text: "Plain water"
+    below: "How do you usually drink water?"
+
+# Continue
+- scrollUntilVisible:
+    element: "Continue"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Continue"

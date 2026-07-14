@@ -1,0 +1,39 @@
+appId: com.monish2005.vitalhealth
+---
+# ==========================================
+# 3. PERSONAL INFO (Step 1 of 4)
+# ==========================================
+- takeScreenshot: .maestro/screenshots/04_personal_info
+- tapOn:
+    text: "e.g. John"
+    below: "First Name"
+- inputText: "John"
+- tapOn:
+    text: "e.g. Doe"
+    below: "Last Name"
+- inputText: "Doe"
+
+# Scroll down to ensure Phone is visible
+- scrollUntilVisible:
+    element: "Phone"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    text: "e.g. 9876543210"
+    below: "Phone"
+- inputText: "9876543210"
+
+# Select Date of Birth: 1st Jan 2006 (keeping default 2006)
+- tapOn:
+    text: "Select your date of birth"
+    below: "Date of Birth"
+- tapOn:
+    text: "January|February|March|April|May|June|July|August|September|October|November|December" # Matches the month chip dynamically by its displayed month name
+- assertVisible: "Jan" # Wait for the month selector to animate open
+- tapOn: "Jan" # App displays abbreviated months (Jan, Feb, Mar...)
+- tapOn: "1" # Select Day 1
+- tapOn: "Confirm"
+
+# Select Gender M (Male)
+- tapOn: "♂ Male"
+- tapOn: "Continue"

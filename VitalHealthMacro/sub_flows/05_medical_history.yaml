@@ -1,0 +1,41 @@
+appId: com.monish2005.vitalhealth
+---
+# ==========================================
+# 6. MEDICAL HISTORY (Step 4 of 4)
+# ==========================================
+- assertVisible: "Medical History"
+- takeScreenshot: .maestro/screenshots/07_medical_history
+
+# Medical history: randomize (choose Hypertension)
+- scrollUntilVisible:
+    element: "Chronic Conditions"
+    direction: DOWN
+    centerElement: true
+    timeout: 5000
+- tapOn:
+    text: "Hypertension"
+    below: "Chronic Conditions"
+
+- scrollUntilVisible:
+    element: "Current Medications"
+    direction: DOWN
+    centerElement: true
+
+- tapOn:
+    text: "Metformin"
+    below: "Current Medications"
+
+# Family medical: randomize (choose Diabetes)
+- scrollUntilVisible:
+    element: "Family Medical History"
+    direction: DOWN
+    centerElement: true
+    speed: "30"
+- tapOn:
+    text: "Diabetes"
+    below: "Family Medical History"
+
+- scrollUntilVisible:
+    element: ".*Review Profile.*"
+    direction: DOWN
+- tapOn: ".*Review Profile.*"

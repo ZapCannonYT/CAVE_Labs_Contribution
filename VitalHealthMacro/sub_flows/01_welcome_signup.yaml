@@ -1,0 +1,35 @@
+appId: com.monish2005.vitalhealth
+---
+# ==========================================
+# 1. WELCOME SCREEN
+# ==========================================
+- assertVisible: "VitalHealth"
+- takeScreenshot: .maestro/screenshots/01_welcome
+- tapOn: "Get Started"
+
+# ==========================================
+# 2. SIGN UP / CREATE ACCOUNT
+# ==========================================
+- takeScreenshot: .maestro/screenshots/02_create_account
+- tapOn:
+    text: "John Doe"
+    below: "Full Name"
+- inputText: "test_101" # Full Name
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com" # E-mail address
+- tapOn:
+    text: "Min. 8 characters"
+    below: "Password"
+- inputText: "password123" # Password
+- tapOn:
+    text: "Re-enter your password"
+    below: "Confirm Password"
+- inputText: "password123"
+- tapOn:
+    text: "Create Account"
+    index: 1
+
+# Wait for onboarding personal info screen
+- assertVisible: "Personal Info"

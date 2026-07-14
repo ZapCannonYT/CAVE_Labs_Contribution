@@ -1,0 +1,54 @@
+appId: com.monish2005.vitalhealth
+---
+# Reset and launch
+- clearState
+- launchApp
+
+# ==========================================
+# 1. SIGN IN FLOW
+# ==========================================
+- assertVisible: "VitalHealth"
+- tapOn: "I already have an account"
+- assertVisible: "Sign In"
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com"
+- tapOn:
+    text: "••••••••"
+    below: "Password"
+- inputText: "password123"
+- tapOn: "Sign In"
+
+# Wait for Dashboard
+- assertVisible: "Dashboard"
+- assertVisible: "Live Telemetry"
+- takeScreenshot: 10_dashboard_main
+
+# ==========================================
+# 2. TEST DASHBOARD TELEMETRY BUTTONS
+# ==========================================
+
+# Active Steps Card
+- tapOn: "ACTIVE STEPS"
+- assertVisible: "Step Intelligence"
+- takeScreenshot: 11_step_intelligence
+- tapOn: "Back"
+
+# Heart Rate Card
+- tapOn: "HEART RATE"
+- assertVisible: "Start Measurement"
+- takeScreenshot: 12_heart_scanner
+- tapOn: "Back"
+
+# Oxygen Saturation Card
+- tapOn: "OXYGEN SAT."
+- assertVisible: "SpO2 Scanner"
+- takeScreenshot: 13_spo2_scanner
+- tapOn: "Back"
+
+# Daily Burn Card
+- tapOn: "DAILY BURN"
+- assertVisible: "Calorie Intelligence"
+- takeScreenshot: 14_calorie_intelligence
+- tapOn: "Back"

@@ -1,0 +1,34 @@
+appId: com.monish2005.vitalhealth
+---
+# ==========================================
+# 4. MEDICAL INFO (Step 2 of 4)
+# ==========================================
+- takeScreenshot: .maestro/screenshots/05_medical_info
+
+# Height 175
+- tapOn:
+    text: "e.g. 175"
+    below: "HEIGHT *"
+- inputText: "175"
+
+# Weight 75
+- tapOn:
+    text: "e.g. 70" # Placeholder for weight
+    below: "WEIGHT *"
+- inputText: "75"
+
+# Dismiss keyboard safely by tapping on the header
+- tapOn: "Medical Info"
+
+# Blood group A+
+- scrollUntilVisible:
+    element: "Select Blood Group"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Select Blood Group"
+- tapOn: "A+"
+
+# HR & BP default (already populated as 72, 120, 80 by default)
+- scroll
+- scroll
+- tapOn: ".*Continue.*"

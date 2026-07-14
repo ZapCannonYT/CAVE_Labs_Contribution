@@ -1,0 +1,64 @@
+appId: com.monish2005.vitalhealth
+---
+# Reset and launch
+- clearState
+- launchApp
+
+# ==========================================
+# 1. SIGN IN FLOW
+# ==========================================
+- assertVisible: "VitalHealth"
+- tapOn: "I already have an account"
+- assertVisible: "Sign In"
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com"
+- tapOn:
+    text: "••••••••"
+    below: "Password"
+- inputText: "password123"
+- tapOn: "Sign In"
+
+# Wait for Dashboard
+- assertVisible: "Dashboard"
+- assertVisible: "Live Telemetry"
+
+# ==========================================
+# 2. TEST MEDICATION VAULT
+# ==========================================
+- tapOn: "Manage Vault"
+- assertVisible: "Medications"
+- takeScreenshot: 20_medication_vault
+
+# Tap Add Medicine Button
+- tapOn: "AddMedicine"
+- assertVisible: "New Medication"
+- takeScreenshot: 21_add_medicine_form
+
+# Input Details
+- tapOn:
+    text: "e.g. Paracetamol"
+    below: "MEDICINE IDENTITY"
+- inputText: "Metformin"
+- tapOn:
+    text: "e.g. 500mg or 10ml"
+    below: "DOSAGE CONFIG"
+- inputText: "500mg"
+
+# Test Voice Reminder Trigger (Timer Event Check)
+- tapOn: "Test Voice Reminder"
+- assertVisible: "Reminder Preview"
+- takeScreenshot: 22_voice_reminder_alert
+- tapOn: "OK"
+
+# Save Medication
+- tapOn: "SAVE"
+- assertVisible: "Success"
+- takeScreenshot: 23_save_success_alert
+- tapOn: "OK"
+
+# Verify medication added successfully to active vault list
+- assertVisible: "Metformin"
+- assertVisible: "500mg"
+- takeScreenshot: 24_medication_added_list

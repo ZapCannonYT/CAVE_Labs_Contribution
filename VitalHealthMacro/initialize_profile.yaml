@@ -1,0 +1,233 @@
+appId: com.monish2005.vitalhealth
+---
+# Start the app clean to initialize the profile
+- clearState
+- launchApp
+
+# ==========================================
+# 1. WELCOME SCREEN
+# ==========================================
+- assertVisible: "VitalHealth"
+- tapOn: "Get Started"
+
+# ==========================================
+# 2. SIGN UP / CREATE ACCOUNT
+# ==========================================
+- assertVisible: "Create Account"
+- tapOn:
+    text: "John Doe"
+    below: "Full Name"
+- inputText: "test_101" # Full Name
+- tapOn:
+    text: "you@example.com"
+    below: "Email Address"
+- inputText: "test101@example.com" # E-mail address
+- tapOn:
+    text: "Min. 8 characters"
+    below: "Password"
+- inputText: "password123" # Password
+- tapOn:
+    text: "Re-enter your password"
+    below: "Confirm Password"
+- inputText: "password123"
+- tapOn: "Create Account"
+
+# Wait for onboarding welcome
+- assertVisible: "Welcome to VitalHealth"
+- tapOn: "Start Setup"
+
+# ==========================================
+# 3. PERSONAL INFO (Step 1 of 4)
+# ==========================================
+- assertVisible: "Personal Info"
+- tapOn:
+    text: "e.g. John"
+    below: "First Name"
+- inputText: "John" # First name
+- tapOn:
+    text: "e.g. Doe"
+    below: "Last Name"
+- inputText: "Doe" # Last name
+- tapOn:
+    text: "e.g. 9876543210"
+    below: "Phone"
+- inputText: "9876543210" # Phone
+
+# Select Date of Birth: 1st Jan 2005
+- tapOn:
+    text: "Select your date of birth"
+    below: "Date of Birth"
+- tapOn: "2006" # Tap the default year chip to open Year list
+- tapOn: "2005" # Select Year 2005
+- tapOn: "January" # Select Month January
+- tapOn: "1" # Select Day 1
+- tapOn: "Confirm"
+
+# Select Gender M (Male)
+- tapOn: "♂ Male"
+- tapOn: "Continue"
+
+# ==========================================
+# 4. MEDICAL INFO (Step 2 of 4)
+# ==========================================
+- assertVisible: "Medical Info"
+
+# Height 175
+- tapOn:
+    text: "e.g. 175"
+    below: "Height *"
+- inputText: "175"
+
+# Weight 75
+- tapOn:
+    text: "e.g. 70" # Placeholder for weight
+    below: "Weight *"
+- inputText: "75"
+
+# BF% 20
+- tapOn:
+    text: "e.g. 20" # Placeholder for Body Fat %
+    below: "Body Fat % *"
+- inputText: "20"
+
+# Blood group A+
+- tapOn:
+    text: "Select Blood Group"
+    below: "Blood Group *"
+- tapOn: "A+"
+
+# Allergies skip (leave empty - default)
+
+# HR & BP default (already populated as 72, 120, 80 by default)
+- tapOn: "Continue →"
+
+# ==========================================
+# 5. DAILY HABITS (Step 3 of 4)
+# ==========================================
+- assertVisible: "Daily Habits"
+
+# Set wakeUp: 6:30 AM
+# We tap the first time picker trigger (Wake Up) and accept or done
+- tapOn: "Wake Up"
+- tapOn: "Done"
+
+# Set breakfast: 9:30 AM
+- tapOn: "Breakfast"
+- tapOn: "Done"
+
+# Set lunch: 1:30 PM
+- tapOn: "Lunch"
+- tapOn: "Done"
+
+# Set dinner: 7:30 PM
+- tapOn: "Dinner"
+- tapOn: "Done"
+
+# Set sleep: 11:30 PM
+- tapOn: "Sleep"
+- tapOn: "Done"
+
+# Water: 3L
+- tapOn:
+    text: "3L"
+    below: "Daily Water Intake"
+
+# Activity: moderate
+- tapOn:
+    text: "Moderate"
+    below: "Activity Level"
+
+# Diet: randomize (choose Vegetarian)
+- tapOn:
+    text: "Vegetarian"
+    below: "What best describes your diet?"
+
+# Meals: 3
+- tapOn:
+    text: "3 meals"
+    below: "How many times do you eat in a day?"
+
+# Snack: often
+- tapOn:
+    text: "Often"
+    below: "How often do you snack between meals?"
+
+# Cook: often
+- tapOn:
+    text: "Often"
+    below: "How often do you cook at home?"
+
+# Order: rarely
+- tapOn:
+    text: "Rarely"
+    below: "How often do you eat out or order in?"
+
+# Allergy: randomize (choose None)
+- tapOn:
+    text: "None"
+    below: "Any food allergies or intolerances?"
+
+# Cuisine: randomize (choose Indian)
+- tapOn:
+    text: "Indian"
+    below: "Which cuisines do you love most?"
+
+# Fav foods: randomize (choose Biryani)
+- tapOn:
+    text: "Tap to choose your favourites…"
+    below: "What are your absolute favourite foods?"
+- tapOn: "Biryani"
+- tapOn: "Done  ✓"
+
+# Goal: randomize (choose Lose weight)
+- tapOn:
+    text: "Lose weight"
+    below: "What's your main food goal right now?"
+
+# Cheat meal: leave empty (default)
+
+# Meal prep: randomize (choose Occasionally)
+- tapOn:
+    text: "Occasionally"
+    below: "Do you meal prep in advance?"
+
+# Plain water: (selected by default or choose Plain water)
+- tapOn:
+    text: "Plain water"
+    below: "How do you usually drink water?"
+
+- tapOn: "Continue"
+
+# ==========================================
+# 6. MEDICAL HISTORY (Step 4 of 4)
+# ==========================================
+- assertVisible: "Medical History"
+
+# Medical history: randomize (choose Hypertension)
+- tapOn:
+    text: "Hypertension"
+    below: "Chronic Conditions"
+
+# Current medication: cater to random medical condition (choose Amlodipine)
+- tapOn:
+    text: "Amlodipine"
+    below: "Current Medications"
+
+# Past surgeries: leave empty (default)
+
+# Family medical: randomize (choose Diabetes)
+- tapOn:
+    text: "Diabetes"
+    below: "Family Medical History"
+
+- tapOn: "Review Profile →"
+
+# ==========================================
+# 7. REVIEW & LAUNCH
+# ==========================================
+- assertVisible: "Review Profile"
+- tapOn: "Launch My Dashboard"
+
+# Ensure dashboard loads
+- assertVisible: "Dashboard"
+- assertVisible: "Live Telemetry"

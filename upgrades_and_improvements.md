@@ -1,146 +1,132 @@
-# Health AI Upgrades and Improvements Report
+# 🚀 Health AI Upgrades & Architectural Report
 
-## Compilation of Upgrades: `healthbot\_v3.1` vs. `healthbot\_v3.2`
+This document records the chronological development and implementation of all architectural enhancements, safety guardrails, model upgrades, and optimizations integrated into **`healthbot_v3.2`** relative to the standard **`healthbot_v3.1`** baseline.
 
-This comprehensive document records all architectural improvements, model upgrades, document processing features, security enhancements, and verification tests implemented in the `healthbot\_v3.2` repository.
+---
 
-\---
+## 📁 Chronological Compilation of Upgrades
 
-## 🚀 Overview of Core Upgrades
+### 1. Repository Configuration & Gitignore Optimization
+- **Description:** Set up workspace git policies and structured exclusions to separate core code from local models and backups.
+- **Key Deliverables:** Updated [.gitignore](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/.gitignore) to exclude large model weights (`*.gguf`), local compressed archives (`*.zip`), virtual environment directories (`.venv/`), and compilation caches (`__pycache__/`).
+- **Technical Impact:** Prevents repository bloat, ensuring that only source code and test files are committed, keeping push payloads light.
 
-|Feature Category|Standard (`healthbot\_v3.1`)|Upgraded (`healthbot\_v3.2`)|Technical \& Performance Impact|
-|-|-|-|-|
-|**Embedding Model**|`all-MiniLM-L6-v2`|**`BAAI/bge-small-en-v1.5`**|State-of-the-art retrieval accuracy for the medical domain.|
-|**Query Retrieval**|Standard embedding|**BGE search instruction prefix**|Prepends recommended search instructions to queries for optimal semantic alignment.|
-|**PDF Extraction**|Basic `PaddleOCR` only|**Hybrid Classifier Pipeline**|Automatically identifies and routes digital, scanned, or mixed PDF pages.|
-|**Intent Classification**|Greeting matched first|**Medical keywords prioritized**|Routes mixed queries correctly (e.g., *"hello, my chest hurts"*). Uses word-boundary regex constraints.|
-|**Off-Topic Guard**|Strict rejection|**Context-Aware History Fallback**|Allows follow-up questions (e.g., *"why?"*, *"explain further"*, *"thanks!"*) to reach the LLM.|
-|**Document Processing**|Raw text chunking|**Hybrid Structured Summary**|Extracts lab metrics and prescriptions using heuristics, indexing a high-density summary at chunk index 0.|
-|**Developer Tools**|No web interface|**`chat.html` client**|Preserved interactive client playground to test the chatbot locally in real time.|
+---
 
-\---
+### 2. Semantic Search & Dense Embedding Upgrade
+- **Description:** Upgraded the embedding model to improve matching density and context retrieval for clinical and medical terms.
+- **Key Deliverables:**
+  - Integrated the state-of-the-art **`BAAI/bge-small-en-v1.5`** embedding model inside [embedder.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/embeddings/embedder.py).
+  - Configured a query instruction prefix: `"Represent this sentence for searching relevant passages: "` prepended to clinical searches.
+- **Technical Impact:** Replaced the legacy `all-MiniLM-L6-v2` model, yielding a significant boost in semantic retrieval accuracy within specialized medical query contexts.
 
-## 🛡️ Security Vulnerability Fixes \& Hardening
+---
 
-* **DoS \& Resource Exhaustion Protection:**
+### 3. Word-Boundary Intent Filtering & Empathy Prompting
+- **Description:** Hardened the classifier against false-positive triggers and updated response empathy guidelines.
+- **Key Deliverables:**
+  - Implemented whole-word boundary regex patterns (`\b`) inside [character.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/core/character.py) for clinical classifications.
+  - Upgraded prompt matrices to mirror patient cues—providing warm reassurance for anxiety/worry and celebratory support for positive clinical developments.
+- **Technical Impact:** Prioritizes clinical symptom categorization over generic greetings (resolving false-positives such as *"hello, my chest tightness is back"* being misclassified as a greeting).
 
-  * Implemented an inline stream size check inside the `/upload-and-embed` endpoint (`server.py`). Uploaded files are dynamically consumed in 64KB chunks; if the total payload exceeds **25MB**, the upload is immediately terminated and a `413 Payload Too Large` error is raised.
-* **Non-Blocking Parsing Offloads:**
+---
 
-  * Document text extraction inside `server.py` now leverages `asyncio.to\_thread` to prevent CPU-intensive PDF parsing/OCR processing from blocking the FastAPI main event loop.
-* **Prompt Injection Defense:**
+### 4. Context-Aware Chat History Fallback Router
+- **Description:** Restructured the intent router to tolerate conversation context, preventing incorrect prompt blocks on conversational follow-ups.
+- **Key Deliverables:** Added fallback history checking inside [character.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/core/character.py). If a user's prompt is a short follow-up (e.g. *"explain that further"*, *"why?"*, *"thanks"*), it scans preceding messages to check if they were on-topic.
+- **Technical Impact:** Resolves strict off-topic rejection failures by allowing relevant follow-ups to reach the LLM rather than blocking them.
 
-  * Created `sanitize\_prompt\_input` inside `context\_builder.py` which filters out ChatML system and injection tokens (such as `<|im\_start|>`, `<|im\_end|>`, `\[PATIENT DATA]`, and `\[CONVERSATION HISTORY]`) from user inputs, document chunks, and message history.
-* **Log Injection Sanitization:**
+---
 
-  * Sanitized carriage returns and newlines (`\\r`, `\\n`) from filenames before logging to prevent log spoofing/poisoning.
-* **External API Fail-Safe Limits:**
+### 5. PDF classifier & Hybrid Page Parser
+- **Description:** Implemented a page-by-page file analyzer to select the optimal text extraction strategy based on document type.
+- **Key Deliverables:** Reconstructed [document_reader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/utils/document_reader.py) to inspect page character density:
+  - *Digital Pages (characters > 300):* Direct extraction via `pdfplumber`.
+  - *Scanned Pages (characters < 50):* Page rasterization and OCR processing via `PaddleOCR` (with `pytesseract` fallback).
+  - *Mixed Pages (50–300 characters):* Combined extraction with OCR fallback.
+- **Technical Impact:** Dramatically reduces processing overhead by extracting digital text directly instead of running expensive OCR on programmatic PDF pages.
 
-  * Enforced a strict `timeout=10` constraint on drug information lookup REST queries inside `drug\_api.py`.
-* **Logging Integrity:**
+---
 
-  * Swapped local `FileHandler` structures in `logger.py` for a `RotatingFileHandler` configured with a 10MB threshold and 5 file rotation limits to prevent disk filling.
+### 6. OCR Quality Guardrails & Performance Shields
+- **Description:** Configured quality validation rules to prevent server locks or visual parsing failures from corrupted or malformed documents.
+- **Key Deliverables:**
+  - Enforced a hard **50-page document ceiling** to mitigate denial-of-service (DoS) locks.
+  - Added Lanczos filtering in [document_reader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/utils/document_reader.py) to downscale images exceeding **3000px**.
+  - Built blank-page waiving: solid colors (std dev < 1.0) skip quality guards to return a clean empty string.
+  - PDF-Rendered Page Waiver: Excludes programmatically rasterized pages from contrast, blur, and lighting tests.
+- **Technical Impact:** Stabilizes document uploading against malformed or massive PDFs, preventing memory overflow.
 
-\---
+---
 
-## ⚙️ Core Config \& Architectural Adjustments
+### 7. Structured Parameter Extraction Heuristics
+- **Description:** Created a parser to extract clinical indicators, dosages, and patient names, indexing them for rapid search.
+- **Key Deliverables:**
+  - Added [document_processor.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/rag/document_processor.py) to extract metric patterns (e.g., units like `mg/dL`, `mmol/L`, `bpm`, `mmHg`) and prescription schedules (`1-0-1`).
+  - Compiled structured extractions into a high-density Markdown summary placed at chunk index 0 (`is_summary: True`).
+- **Technical Impact:** Provides the LLM with immediate access to tabular clinical stats at query time, supplementing raw semantic vector searches.
 
-* **CPU-Only Inference Fallback:**
+---
 
-  * Swapped standard GPU allocation settings (`n\_gpu\_layers = -1`) inside `settings.py` for environment-driven logic defaulting to CPU-only execution: `int(os.environ.get("HEALTH\_AI\_GPU\_LAYERS", "0"))`.
-* **Dynamic Model Info Reporting:**
+### 8. Prompt Injection Defenses & Global Emoji Scrubber
+- **Description:** Hardened prompt templates against system override attacks and stripped emojis to preserve clinical tone.
+- **Key Deliverables:**
+  - Integrated `sanitize_prompt_input` inside [context_builder.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/rag/context_builder.py) to strip system tokens (e.g., `<|im_start|>`, `<|im_end|>`).
+  - Implemented regex-based keyword safety checks inside [safety.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/core/safety.py) to detect override attempts.
+  - Built a global regex emoji scrubber inside `apply_safety_layer` to strip emojis from the final output text.
+- **Technical Impact:** Restricts conversational tone to clinical boundaries and blocks adversarial injection payloads.
 
-  * Updated `server.py`'s `/health` and `/server/info` endpoints to dynamically inspect `settings.LLM\_MODEL\_PATH` and return the correct active model name (`Qwen3-4B-Q4\_K\_M`) rather than displaying a hardcoded string.
-* **GGUF Model Shard Auto-Verification:**
+---
 
-  * Configured `llm_loader.py` to check for split model file shards (`00002-of-00003.gguf`, etc.) *only* if the primary filename ends with `"00001-of-00003"`. Single-file models bypass the shard checks automatically and load cleanly.
-* **Emergency Safety Logic & Global Emoji Scrubber:**
+### 9. Non-Blocking Server Threads & File Size Limits
+- **Description:** Hardened the API interface to handle upload payloads safely without blocking the web event loop.
+- **Key Deliverables:**
+  - Added stream size verification in [server.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/api/server.py)'s `/upload-and-embed` endpoint: rejects uploads exceeding **25MB** immediately.
+  - Offloaded CPU-heavy extraction and OCR to background executor threads via `asyncio.to_thread`.
+- **Technical Impact:** Prevents large files from starving the server's thread pool, ensuring concurrent clients remain active.
 
-  * Aligned system alerts inside `safety.py` to include multiple international emergency contact hotlines (911 / 999 / 112).
-  * Integrated an automatic post-generation **Global Emoji Scrubber** in `safety.py` (`apply_safety_layer`) that sweeps the completed LLM text output and strips any emojis before sending it to the client. This guarantees 100% emoji-free responses even if the model ignores the prompt rules.
-* **Word-Boundary Regex Intent Filters:**
+---
 
-  * Rewrote keyword intent classification checks in `character.py` using whole-word boundary regex patterns (`\\b`) to eliminate false-positive intent classification issues.
-* **Empathy & Tone Guidance Prompt Upgrades:**
+### 10. Developer Playground UI Upgrades (`chat.html`)
+- **Description:** Overhauled the web testing interface for a premium, high-fidelity experience.
+- **Key Deliverables:**
+  - Redesigned the sidebar file-upload layout, styling the "Upload File" and "Cancel" actions side-by-side in secondary low-contrast designs.
+  - Added a shimmery animated progress bar that cycles through extraction and OCR status stages.
+  - Utilized CSS `field-sizing: content` to automatically resize the chat input textarea.
+  - Added CSS `@starting-style` declarations to introduce smooth slide-in entry animations for new message bubbles.
+- **Technical Impact:** Elevates the local playground UI to a premium level, making tests visually descriptive and easy to interact with.
 
-  * Upgraded all role system prompts (General, Lab, Prescription, Symptoms, etc.) in `character.py` to enforce a warm, empathetic, yet professional and structured tone, requiring the LLM to write brief layperson-friendly summaries without medical jargon.
-  * Added **dynamic emotional mirroring** instructions: the LLM automatically detects and adapts its tone to the user's emotional state (celebratory and cheerful for positive recovery/health news; warm and reassuring for anxiety/worry; professional yet empathetic for neutral queries).
+---
 
-\---
+### 11. Malicious & Edge-Case Stress Test Suite
+- **Description:** Implemented an end-to-end stress test suite to validate OCR stability and exception bubbling.
+- **Key Deliverables:** Developed [test_ocr_stress.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/tests/test_ocr_stress.py) with 24 edge-case tests, verifying correct error bubbling for empty, password-protected, js-embedded, and high-concurrency documents.
+- **Technical Impact:** Guarantees code regression stability under extreme or malformed inputs.
 
-## 📄 Advanced PDF \& OCR Pipeline
+---
 
-The document reader in `document\_reader.py` has been completely replaced with a highly robust version containing the following features:
+### 12. Architectural Developer Onboarding Documentation
+- **Description:** Restructured technical documents to aid developer onboarding.
+- **Key Deliverables:** Rewrote [README.md](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/README.md) to serve as a clean technical guide, featuring system package layouts, visual Mermaid flowcharts, setup instructions, and Windows security bypass tips.
+- **Technical Impact:** Eliminates onboarding friction by separating core architecture details from project histories.
 
-### 1\. Dynamic Classifier
+---
 
-Scans PDF pages and dynamically routes them:
+### 13. Dynamic Model Shard Auto-Verification
+- **Description:** Enabled the engine to load single-file model weights dynamically while maintaining shard verification for multi-file models.
+- **Key Deliverables:** Re-engineered the loader inside [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) to check for split model file shards *only* when the primary filename ends with `"00001-of-00003"`.
+- **Technical Impact:** Allows single-file models (like `Qwen3-4B-Q4_K_M.gguf`) to bypass shard checks and start up cleanly, resolving the startup crash.
 
-* **Digital Pages (char\_count > 300):** Processed instantly via direct text extraction using `pdfplumber`.
-* **Scanned/Image Pages (char\_count < 50):** Rasterized and parsed using `PaddleOCR` (with `pytesseract` as fallback).
-* **Mixed Pages (50–300 chars):** Hybrid approach (tries text extraction first, falls back if needed).
+---
 
-### 2\. OCR Quality Guardrails
+### 14. Streaming Generator Disconnect Watcher
+- **Description:** Implemented a cancellation listener to abort text generation immediately if a client disconnects.
+- **Key Deliverables:** Updated the `generate()` method in [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) to accept `stop_event` and `meta` parameters, invoking `stream=True` on `Llama` to yield tokens chunk-by-chunk and aborting if `stop_event.is_set()` is detected.
+- **Technical Impact:** Resolves uvicorn `TypeError` crashes and frees CPU resources immediately upon connection disconnects during generation.
 
-* **Corrupt File Exception Handling:** Wraps the initial PyMuPDF `fitz.open()` inside a comprehensive `try/except` block, safely bubbling up `EmptyDocumentError` if the document is corrupt, zero-byte, or empty.
-* **PDF Encryption Guard:** Rejects password-protected PDF files automatically.
-* **Page Limit Ceiling:** Restricts documents to a maximum of **50 pages** to prevent CPU-intensive server locks.
-* **Image Dimension Capping:** Automatically downscales uploaded images exceeding **3000px** on either side using a Lanczos filter.
-* **Solid Color/Blank Page Bypass:** Bypasses image quality verification for solid color images (contrast std < 1.0) so empty pages cleanly return `""` text rather than triggering bad scanning/blur/lighting errors (`OCRError`).
-* **PDF-Rendered Page Quality Waiver:** Renditions of PDF pages are exempt from the strict blur, lighting, and contrast metrics since they are generated programmatically by the PDF renderer and do not contain scanner camera defects.
-* **OCR Performance \& Verbosity:** Configured PaddleOCR to run with `show\_log=False` and redirected verbose OCR lines to `DEBUG`, reducing terminal log spam.
+---
 
-### 3\. Detailed OCR Logging
-
-The `DocumentReader` writes detailed execution tracing to the console during document uploads:
-
-* Identifies which document reader strategy is used (digital, scanned, or mixed).
-* Logs page details from PyMuPDF and the number of pages detected.
-* Logs image quality assessments for scanned pages, along with whether PaddleOCR or pytesseract was successfully employed.
-
-\---
-
-## 🧠 Smart Hybrid Document Processing
-
-Added `document\_processor.py` to extract structured data from raw OCR texts and compile them into a high-density summary:
-
-* **Heuristic Metadata \& Metric Parser:**
-
-  * Extracts patient/doctor names and report dates.
-  * Matches lab metrics (e.g., units like `g/dL`, `mg/dL`, `mmol/L`, `bpm`, `mmHg`, `%`, etc.).
-  * Extracts prescription dosages and schedules (e.g., `1-0-1`, `1-1-1`, `once daily`, `at bedtime`, etc.).
-* **Hybrid Structured Chunks:**
-
-  * The compiled summary is stored as a high-density chunk with `is\_summary: True` placed at chunk index 0.
-  * The VectorDB stores both this summary chunk and standard raw text chunks, giving the LLM immediate access to dense key metrics while keeping full raw document details searchable.
-
-\---
-
-## 💬 Interactive Developer Interface
-
-* **`chat.html` Preserved:**
-
-  * An interactive local HTML interface allowing developers to upload documents, view active symptoms/prescriptions, check intent classifications, and converse with Dr. Aria in real time.
-  * **Thought Process Hidden:** Updated response processing in `chat.html` to hide the AI's internal reasoning `<think>...</think>` block from the user:
-
-&#x20;   ```javascript
-    response = response.replace(/<\\/think>\[\\s\\S]\*?<\\/think>/gi, "").trim();
-    ```
-
-\---
-
-## 🧪 Verification \& Stress Tests
-
-All upgrades have been validated via dedicated testing scripts:
-
-* **`test\_intent.py`**: Confirmed correct priority mapping for mixed greeting-medical inputs.
-* **`test\_routing.py`**: Confirmed context-aware fallback handles follow-up queries seamlessly.
-* **`test\_processor.py`**: Confirmed the hybrid chunking pipeline generates both structured summary chunks and standard context chunks accurately.
-* **Stress Test Suite (`test\_ocr\_stress.py`):**
-A robust test harness containing 24 hostile edge-cases was written to test the stability of the document extraction pipeline. **All 24 stress tests pass cleanly**:
-
-  * *Malformed / Corrupt Inputs:* `test\_zero\_byte\_file`, `test\_not\_a\_pdf`, `test\_not\_an\_image`, `test\_truncated\_pdf`, `test\_corrupt\_xref`
-  * *Resource Capping / Safety limits:* `test\_decompression\_bomb`, `test\_large\_500\_pages`, `test\_password\_protected\_pdf`, `test\_js\_embedded\_pdf`
-  * *Noisy OCR Scenarios:* `test\_attachments\_pdf`, `test\_skewed\_page`, `test\_low\_contrast`, `test\_handwritten`, `test\_noisy`, `test\_multi\_column`, `test\_table\_page`, `test\_mixed\_digital\_scanned`, `test\_rotated\_blocks`, `test\_blank\_page`, `test\_non\_english`, `test\_medical\_symbols`, `test\_confidence\_boundary\_below`, `test\_confidence\_boundary\_above`
-  * *Server Performance:* `test\_concurrency`
-
+### 15. Workspace Developer Custom Skills
+- **Description:** Installed developer-focused workspace skills to enforce visual quality across project deliverables.
+- **Key Deliverables:** Created a custom workspace formatting skill at [SKILL.md](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/.agents/skills/prettier_markdown/SKILL.md) outlining strict rules for clean typography, Mermaid logic diagrams, GitHub-style alerts, and reduced/minimal emoji usage.
+- **Technical Impact:** Guarantees that future AI-generated documentation remains highly structured, clean, and professional.

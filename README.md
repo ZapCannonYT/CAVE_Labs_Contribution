@@ -1,10 +1,10 @@
-# 🩺 Dr. Aria — Advanced Personal Medical Assistant (Health AI v3.2)
+# Dr. Aria — Advanced Personal Medical Assistant (Health AI v3.2)
 
 Welcome to the **Health AI v3.2** repository. This project delivers **Dr. Aria**, an offline-first, stateless personal medical assistant designed for secure local deployment or production execution.
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 Below is an overview of the core packages and modules configured in the workspace:
 
@@ -41,13 +41,13 @@ Below is an overview of the core packages and modules configured in the workspac
 │   └── logs/                       # Server log output folder
 ├── chat.html                       # Modern local developer client UI (Popover, Textarea, Animations)
 ├── requirements.txt                # System requirements & dependencies
-├── upgrades_and_improvements.md   # Compilation of architectural improvements in v3.2
+├── UPGRADES.md                    # Compilation of architectural improvements in v3.2
 └── README.md                       # This developer documentation
 ```
 
 ---
 
-## 🎨 Visual Pipeline Architecture
+## Visual Pipeline Architecture
 
 ### 1. Document Reader Classifier & OCR Pipeline
 Uploaded medical PDFs are classified page-by-page and dynamically routed to keep extraction both fast and accurate:
@@ -108,7 +108,7 @@ graph LR
 
 ---
 
-## ⚙️ Setup & Installation
+## Setup & Installation
 
 ### 1. Prerequisites
 Ensure you have **Python 3.10+** installed, along with local OCR dependencies:
@@ -140,11 +140,11 @@ pip install -r requirements.txt
 3. Configure the active filename in `health_ai/config/settings.py` via `LLM_MODEL_PATH`.
 
 > [!IMPORTANT]
-> The dynamic model loader [llm_loader.py](file:///c:/Users/Zap/UHI_Internship/Health-Digital-Twin-Sunav/healthbot_v3.2/health_ai/model/llm_loader.py) automatically handles both single-file models (like `Qwen3-30B-A3B.gguf`) and split-file model shards (like `qwen2.5-14b-instruct-q5_k_m-00001-of-00003.gguf`). If using split shards, point the model path to shard 1; the loader will locate and verify the other shards.
+> The dynamic model loader [llm_loader.py](health_ai/model/llm_loader.py) automatically handles both single-file models (like `Qwen3-30B-A3B.gguf`) and split-file model shards (like `qwen2.5-14b-instruct-q5_k_m-00001-of-00003.gguf`). If using split shards, point the model path to shard 1; the loader will locate and verify the other shards.
 
 ---
 
-## 🔐 Configuration & Authentication
+## Configuration & Authentication
 
 The FastAPI server enforces authentication on key endpoints (`/upload-and-embed`, `/embed-query`, and `/generate`). 
 
@@ -165,7 +165,7 @@ In production, clients must supply credentials:
 
 ---
 
-## 🚀 Running the Server & Client UI
+## Running the Server & Client UI
 
 ### 1. Start the Backend Server
 Run the FastAPI application locally:
@@ -176,21 +176,14 @@ python -m health_ai.api.main
 
 Once loaded, you can view the automated OpenAPI documentation at: `http://127.0.0.1:8000/docs`
 
-> [!WARNING]
-> **Windows AppLocker / WDAC Block:**
-> If you get `[WinError 4551] An Application Control policy has blocked this file` targeting `llama.dll` during startup, Windows is preventing DLL execution inside your virtual environment. 
-> 
-> Move the project folder to a whitelisted system location (such as `C:\Users\Zap\healthbot_v3.2` or your `Desktop`) and run it there to bypass this restriction.
-
 ### 2. Launch the Developer UI
-Double-click or open `chat.html` in any web browser. 
-- Click the **Gear Icon** in the sidebar to open Developer Settings (leveraging the HTML Popover API).
-- Write questions in the chat box, which dynamically resizes using CSS `field-sizing: content`.
-- Experience smooth sliding entries for message bubles utilizing CSS `@starting-style` declarations.
+You can access the developer playground UI in two ways:
+1. **Via Server Endpoint:** Open [http://localhost:8000/](http://localhost:8000/) in any web browser while the server is running.
+2. **Via Local File:** Double-click or open `chat.html` directly in any web browser.
 
 ---
 
-## 🧪 Verification & Automated Testing
+## Verification & Automated Testing
 
 Verify your setup by running the test suites:
 
@@ -208,3 +201,8 @@ Run the robust **24-case OCR and Document Reader stress test suite** which simul
 python health_ai/tests/test_ocr_stress.py
 ```
 *(All 24 stress test cases must pass cleanly to verify OCR guardrails).*
+
+---
+
+## Disclaimer
+This project is built on top of an existing baseline application. The author did not develop the entire codebase from the ground up. Instead, the author's work consists of implementing the specific architectural enhancements, security upgrades, and dynamic optimizations documented in [UPGRADES.md](UPGRADES.md), and fully re-designing the PDF document reader and OCR pipeline from the ground up.

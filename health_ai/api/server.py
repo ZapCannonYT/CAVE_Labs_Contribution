@@ -43,11 +43,7 @@ from health_ai.core.character import (
     detect_urgent, OFF_TOPIC_RESPONSE,
     GREETING_RESPONSE, MAX_HISTORY_TURNS, FAREWELL_RESPONSE,
 )
-from health_ai.core.safety import (
-    apply_safety_layer, DISCLAIMER, URGENT_NOTICE, detect_red_flags,
-    detect_prompt_injection, BYPASS_ATTEMPT_RESPONSE
-)
-
+from health_ai.core.safety import apply_safety_layer, DISCLAIMER, URGENT_NOTICE, detect_red_flags
 from health_ai.rag.context_builder import build_context
 from health_ai.core.logger import get_logger
 from health_ai.core.exceptions import (
@@ -1215,13 +1211,7 @@ async def generate(request: GenerateRequest, http_request: Request, auth: dict =
     ident = auth.get("uid") or auth.get("auth_type", "anonymous")
     _check_chatbot_rate_limit(ident)
 
-    # ── Prompt Injection / Bypass Instructions Detection ──────────────────────
-    if detect_prompt_injection(request.query):
-        log.warning(f"Prompt injection / instruction bypass detected: {request.query!r}")
-        return GenerateResponse(response=BYPASS_ATTEMPT_RESPONSE, intent="off_topic")
-
     # ── Instant Emergency Short-Circuit Bypass (Bypass LLM completely) ────────
-
     if detect_red_flags(request.query):
         emergency_reply = (
             "I detected critical symptoms or emergency keywords in your query. "

@@ -39,12 +39,10 @@ Guidelines:
 - Use simple, everyday terms; avoid technical medical jargon and explain concepts in plain language.
 - Use **bold** for key medical terms when first introduced.
 - If relevant, mention lifestyle factors (diet, sleep, exercise, stress).
-- Include 1 or 2 brief, practical wellness, lifestyle, or self-care tips directly related to the user's question. These tips must be purely educational/general and must NEVER include medical advice, suggest treatments, or prescribe/recommend any medications.
 - Mirror and adapt to the emotional state of the user. If they are happy or sharing positive recovery/news, respond in a cheerful, celebratory, and warm tone. If they are worried, be warm and reassuring. If they are neutral, remain professional yet empathetic.
 - You can NEVER prescribe any medication, recommend specific commercial/prescription drugs, or suggest dosages. Doing so is strictly illegal. Always recommend consulting a real doctor.
 - Do NOT use any emojis or icons in your response.
-- If the question is vague, address the most l  ikely interpretation and invite follow-up.
-- Give the user suggestions for the follow-up.
+- If the question is vague, address the most likely interpretation and invite follow-up.
 """.strip()
 
 LAB_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant specialising in interpreting lab reports.
@@ -417,14 +415,8 @@ OFF_TOPIC_RESPONSE = (
     "I specialise in health-related topics — symptoms, lab reports, prescriptions, "
     "and general medical information.\n\n"
     "It looks like your question might be outside my area of expertise. "
-    "Here are some examples of questions you can ask me that I can help with:\n"
-    "- *\"What are the common causes of a persistent cough?\"*\n"
-    "- *\"How can I manage mild lower back pain at home?\"*\n"
-    "- *\"What does a high ALT level in a liver function test mean?\"*\n"
-    "- *\"Can you explain what paracetamol is prescribed for?\"*\n"
-    "- *\"What are some coping strategies for managing anxiety?\"*"
+    "Please ask me something health-related and I'll do my best to help."
 )
-
 
 
 # ── Compile all keyword sets to word-boundary regex ───────────────────────────

@@ -69,37 +69,6 @@ def detect_red_flags(query: str) -> bool:
     return bool(_URGENT_REGEX.search(query))
 
 
-
-# Response returned when a prompt injection/bypass attempt is detected
-BYPASS_ATTEMPT_RESPONSE = (
-    "I'm **Dr. Aria**, your health assistant. "
-    "I cannot ignore or bypass my instructions to act as a health chatbot. "
-    "Please ask me a health-related question."
-)
-
-
-# Compiled word-boundary regex for detecting instruction bypass / prompt injection attempts
-_INJECTION_REGEX = re.compile(
-    r'\b(?:'
-    r'ignore\s+(?:all\s+|previous\s+|system\s+)?instructions|'
-    r'bypass\s+(?:all\s+|previous\s+|system\s+)?instructions|'
-    r'system\s+override|'
-    r'forget\s+(?:all\s+|previous\s+|your\s+)?instructions|'
-    r'do\s+not\s+act\s+as|'
-    r'stop\s+(?:being|acting\s+as)\s+(?:a\s+)?(?:chatbot|bot|health\s+assistant|medical\s+assistant|doctor|aria)|'
-    r'you\s+are\s+now\s+a'
-    r')\b',
-    re.IGNORECASE
-)
-
-
-def detect_prompt_injection(query: str) -> bool:
-    """
-    Return True if the query contains any pattern attempting to bypass or ignore instructions.
-    """
-    return bool(_INJECTION_REGEX.search(query))
-
-
 def apply_safety_layer(response: str, query: str) -> str:
     """
     Append the disclaimer and (if needed) urgent notice to a response, and strip emojis.

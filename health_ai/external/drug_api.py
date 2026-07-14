@@ -9,7 +9,7 @@ _DRUG_CACHE = {}
 
 def normalize_drug_name(name: str):
     try:
-        res = requests.get(f"{RXNORM_URL}/rxcui.json", params={"name": name})
+        res = requests.get(f"{RXNORM_URL}/rxcui.json", params={"name": name}, timeout=10)
         data = res.json()
         ids = data.get("idGroup", {}).get("rxnormId", [])
         return ids[0] if ids else None
@@ -19,7 +19,7 @@ def normalize_drug_name(name: str):
 
 def get_drug_label(rxcui: str):
     try:
-        res = requests.get(f"{DAILYMED_URL}/spls.json", params={"rxcui": rxcui})
+        res = requests.get(f"{DAILYMED_URL}/spls.json", params={"rxcui": rxcui}, timeout=10)
         data = res.json()
 
         if not data.get("data"):

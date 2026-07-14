@@ -2,42 +2,41 @@
 .DS_Store
 __MACOSX/
 
-# Python Cache
-__pycache__/
-*.py[cod]
-
 # Logs
 *.log
 logs/
-health_ai/logs/
+Healthbot/health_ai/logs/
 .pytest_cache/
+
+# Python Cache
+__pycache__/
+*.py[cod]
 
 # Virtual Environments
 venv/
 .venv/
 env/
+Healthbot/.venv/
 
 # Environment Variables
 .env
 .env.*
+Healthbot/.env
 
-# Model Files (VERY IMPORTANT - Ignore large files!)
+# Model Files (Ignore large weights globally)
 *.gguf
 *.pt
-*.pth
 *.bin
-*.h5
-*.onnx
-health_ai/model/*.pt
-health_ai/model/*.bin
-health_ai/model/*.gguf
+Healthbot/health_ai/model/*.pt
+Healthbot/health_ai/model/*.bin
+Healthbot/health_ai/model/*.gguf
 
 # Embedding & Cache Data
 *.npy
 *.npz
 *.pkl
 .cache/
-health_ai/model/.cache/
+Healthbot/health_ai/model/.cache/
 
 # Build & Archives
 *.zip
@@ -47,9 +46,10 @@ health_ai/model/.cache/
 *.incomplete
 *.lock
 
+# Node dependencies (Maestro application builds)
+node_modules/
+Macro/VitalHealthMacro/node_modules/
+
 # IDE settings
 .vscode/
 .idea/
-
-# Maestro CLI binaries
-VitalHealthMacro/maestro-cli/

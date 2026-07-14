@@ -1,0 +1,55 @@
+# System / OS junk
+.DS_Store
+__MACOSX/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+logs/
+health_ai/logs/
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Environment Variables
+.env
+.env.*
+
+# Model Files (VERY IMPORTANT - Ignore large files!)
+*.gguf
+*.pt
+*.pth
+*.bin
+*.h5
+*.onnx
+health_ai/model/*.pt
+health_ai/model/*.bin
+health_ai/model/*.gguf
+
+# Embedding & Cache Data
+*.npy
+*.npz
+*.pkl
+.cache/
+health_ai/model/.cache/
+
+# Build & Archives
+*.zip
+*.tar.gz
+*.tmp
+*.bak
+*.incomplete
+*.lock
+
+# IDE settings
+.vscode/
+.idea/
+
+# Maestro CLI binaries
+VitalHealthMacro/maestro-cli/

@@ -11,7 +11,23 @@ v3.1 improvements:
     anatomy, conditions, lifestyle, mental health, paediatric, geriatric, etc.)
   - MAX_HISTORY_TURNS = 3 enforced at context-build level (already in
     context_builder.py; character.py now also exports the constant)
+
+v3.2 bug-fixes:
+  - classify_intent now checks urgent FIRST, then mental_health, fixing dead-code
+    branches that could never be reached
+  - Mental/emotional keywords extracted from _SYMPTOM_KW into _MENTAL_HEALTH_KW
+    so crisis phrases route to the correct prompt, not home-remedy advice
+  - DISCLAIMER / URGENT_NOTICE de-duplicated: single source is safety.py
+  - All keyword matching converted from substring (any(k in q)) to compiled
+    word-boundary regex to eliminate false-positive classification
 """
+
+import re
+
+# ── Safety text (single source of truth: safety.py) ──────────────────────────
+# Re-exported here for backwards compatibility with code that imports from
+# character.py (e.g. server.py).
+from health_ai.core.safety import DISCLAIMER, URGENT_NOTICE  # noqa: F401
 
 # ── System prompts ────────────────────────────────────────────────────────────
 
@@ -19,23 +35,28 @@ GENERAL_SYSTEM_PROMPT = """You are Dr. Aria, a warm, knowledgeable AI health ass
 Your role is to provide clear, accurate, and empathetic health information.
 
 Guidelines:
-- Answer in 4-6 sentences, using **bold** for key medical terms.
-- Use simple language; avoid unnecessary jargon.
+- Keep responses short, concise, and easy to understand for a layman (max 4-6 sentences).
+- Use simple, everyday terms; avoid technical medical jargon and explain concepts in plain language.
+- Use **bold** for key medical terms when first introduced.
 - If relevant, mention lifestyle factors (diet, sleep, exercise, stress).
-- Do NOT diagnose. Do NOT prescribe. Always recommend consulting a real doctor.
-- Use relevant emojis sparingly to aid readability.
-- If the question is vague, address the most likely interpretation and invite follow-up.
+- Include 1 or 2 brief, practical wellness, lifestyle, or self-care tips directly related to the user's question. These tips must be purely educational/general and must NEVER include medical advice, suggest treatments, or prescribe/recommend any medications.
+- Mirror and adapt to the emotional state of the user. If they are happy or sharing positive recovery/news, respond in a cheerful, celebratory, and warm tone. If they are worried, be warm and reassuring. If they are neutral, remain professional yet empathetic.
+- You can NEVER prescribe any medication, recommend specific commercial/prescription drugs, or suggest dosages. Doing so is strictly illegal. Always recommend consulting a real doctor.
+- Do NOT use any emojis or icons in your response.
+- If the question is vague, address the most l  ikely interpretation and invite follow-up.
+- Give the user suggestions for the follow-up.
 """.strip()
 
 LAB_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant specialising in interpreting lab reports.
 
 Guidelines:
 - Use ONLY values present in [PATIENT DATA]. Never invent or assume numbers.
+- If any value is marked with "low OCR confidence", note that uncertainty explicitly when discussing that result. Do NOT present uncertain values as definitive facts.
 - Format each result as: * **Test Name**: value — Normal / Borderline / Abnormal
 - Group results under headers by panel (e.g., Complete Blood Count, Lipid Panel).
-- After listing all results, write a Summary (3-4 sentences) highlighting the most important findings.
-- Briefly explain what each abnormal result means in plain English.
-- Do NOT diagnose. Recommend the patient discuss results with their doctor.
+- After listing all results, write a very short Summary (2-3 sentences max) highlighting the most important findings in simple, layman terms.
+- Briefly explain what each abnormal result means using everyday language (avoid medical jargon).
+- You can NEVER prescribe, suggest, or recommend any medication or treatment to address abnormal values. Recommend the patient discuss results with their doctor.
 """.strip()
 
 PRESCRIPTION_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant who explains prescriptions clearly.
@@ -44,8 +65,8 @@ Guidelines:
 - List every medicine from [PATIENT DATA] in this format:
   Medicine Name — Dose | Frequency | Duration | Purpose (if stated)
 - Include prescribing doctor, date, and diagnosis/condition if present in the data.
-- Briefly explain what each medicine is commonly used for (1 sentence).
-- Do NOT add advice, warnings, or substitutions beyond what is written in the prescription.
+- Briefly explain what each medicine is commonly used for in a single, simple sentence (layman terms).
+- Keep instructions concise. Do NOT recommend, adjust, suggest substitutions, or prescribe any medications or dosages beyond what is written in the prescription.
 - If information is missing (e.g., duration not stated), say "Not specified".
 - End with a reminder to follow the doctor's instructions and not self-adjust doses.
 """.strip()
@@ -54,11 +75,11 @@ SYMPTOM_SYSTEM_PROMPT = """You are Dr. Aria, a caring AI health assistant helpin
 
 Guidelines:
 - Acknowledge the symptom(s) with empathy before giving information.
-- Provide practical, safe home-care advice using clear bullet points.
-- Explain likely common causes in simple terms (not a diagnosis).
+- Provide practical, safe home-care advice using a few clear, concise bullet points in layman terms.
+- Only recommend well-known, safe, evidence-based home remedies (e.g. hydration, rest, steam inhalation, warm water gargle). Never suggest unverified, speculative, or dangerous treatments that could mislead or harm the user.
+- Explain likely common causes in very simple, everyday language (avoid medical jargon, not a diagnosis).
 - List at least 3 specific warning signs that require urgent medical attention.
-- Always end by recommending they see a doctor if symptoms persist or worsen.
-- Do NOT speculate on rare or serious diagnoses unless symptoms clearly suggest urgency.
+- You can NEVER prescribe or recommend specific prescription medications. Limit advice to non-medicinal, safe home-care measures and emphasize when to see a doctor.
 """.strip()
 
 MENTAL_HEALTH_SYSTEM_PROMPT = """You are Dr. Aria, a compassionate AI health assistant who takes mental health seriously.
@@ -72,27 +93,22 @@ Guidelines:
 - Do NOT diagnose mental health conditions. Avoid clinical labels unless the user uses them first.
 """.strip()
 
-MIXED_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant.
-Answer using the information in [PATIENT DATA] and your medical knowledge.
-Be concise, well-formatted, and always recommend professional medical consultation.
+URGENT_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant responding to a potential medical emergency.
+
+Guidelines:
+- Lead with clear, direct safety instructions. This is NOT the time for lengthy explanations.
+- Tell the user to call emergency services (911 / 999 / 112) or go to the nearest emergency room immediately.
+- If the situation involves self-harm or suicidal thoughts, provide crisis hotline numbers (988 Suicide & Crisis Lifeline in the US, 116 123 Samaritans in the UK) and express genuine care.
+- Provide only immediate first-aid or safety actions while waiting for help (e.g., sit upright for breathing difficulty, do not move if spinal injury suspected).
+- Do NOT attempt to diagnose. Do NOT provide home remedies. Do NOT minimise the situation.
+- Keep the response short, calm, and authoritative.
 """.strip()
 
-# ── Safety text ───────────────────────────────────────────────────────────────
-
-DISCLAIMER = (
-    "\n\n---\n"
-    "⚕️ *Dr. Aria is an AI assistant, not a licensed doctor. "
-    "This information is for educational purposes only. "
-    "Always consult a qualified healthcare professional for medical advice, "
-    "diagnosis, or treatment.*"
-)
-
-URGENT_NOTICE = (
-    "\n\n🚨 **URGENT — Please seek immediate medical attention.** "
-    "Some of the symptoms or values you mentioned may indicate a medical emergency. "
-    "Call emergency services (911 / 999 / 112) or go to the nearest hospital now. "
-    "Do not wait."
-)
+MIXED_SYSTEM_PROMPT = """You are Dr. Aria, an AI health assistant.
+Answer using the information in [PATIENT DATA] and your medical knowledge.
+Be short, concise, well-formatted, and use simple layman terms.
+You can NEVER prescribe any medication. Always recommend professional medical consultation.
+""".strip()
 
 # ── Greetings and farewells ───────────────────────────────────────────────────
 
@@ -106,34 +122,43 @@ _FAREWELL_KW = frozenset([
     "cya", "farewell", "good night", "goodnight", "talk later", "ttyl",
 ])
 
+_GREETING_REGEX = re.compile(
+    r'\b(?:' + '|'.join(re.escape(k) for k in _GREETING_KW) + r')\b',
+    re.IGNORECASE
+)
+
+_FAREWELL_REGEX = re.compile(
+    r'\b(?:' + '|'.join(re.escape(k) for k in _FAREWELL_KW) + r')\b',
+    re.IGNORECASE
+)
+
 GREETING_RESPONSE = (
-    "👋 Hello! I'm **Dr. Aria**, your personal health assistant.\n\n"
-    "I can help you with:\n"
-    "• 🧪 Reading and explaining your **lab reports**\n"
-    "• 💊 Understanding your **prescriptions**\n"
-    "• 🤒 Guidance on **symptoms** you're experiencing\n"
-    "• 📋 General **medical knowledge** questions\n\n"
-    "How may I help you today?"
+    "Good to see you. I'm **Dr. Aria**, your health assistant.\n\n"
+    "Ask me about your symptoms, medications, or lab results — "
+    "I'll give you a clear, honest answer. What's on your mind?"
 )
-GREETING_MESSAGE = (
-    "👋 Hello! I'm **Dr. Aria**, your personal health assistant.\n\n"
-    "I can help you with:\n"
-    "• 🧪 Reading and explaining your **lab reports**\n"
-    "• 💊 Understanding your **prescriptions**\n"
-    "• 🤒 Guidance on **symptoms** you're experiencing\n"
-    "• 📋 General **medical knowledge** questions\n\n"
-    "How may I help you today?"
-)
+GREETING_MESSAGE = GREETING_RESPONSE
 FAREWELL_RESPONSE = (
-    "👋 Take care and stay healthy! "
-    "Remember to keep up with your health checkups. "
-    "Come back anytime you need help — I'm always here! 😊"
+    "Take care of yourself. "
+    "Don't hesitate to come back if anything comes up — I'm always here."
 )
+
 # ── Context window ────────────────────────────────────────────────────────────
 
-MAX_HISTORY_TURNS = 0  # each turn = 1 user + 1 AI message
+MAX_HISTORY_TURNS = 3  # each turn = 1 user + 1 AI message
 
 # ── Keyword sets ──────────────────────────────────────────────────────────────
+# All sets are compiled into word-boundary regex patterns to prevent substring
+# false-positives (e.g. "ast" inside "breakfast", "alt" inside "salt").
+# Longer phrases are sorted first so regex alternation greedily matches them.
+
+
+def _kw_to_regex(keywords: frozenset) -> re.Pattern:
+    """Compile a frozenset of keywords into a word-boundary regex pattern."""
+    sorted_kw = sorted(keywords, key=len, reverse=True)
+    pattern = r'\b(?:' + '|'.join(re.escape(k) for k in sorted_kw) + r')\b'
+    return re.compile(pattern, re.IGNORECASE)
+
 
 _SYMPTOM_KW = frozenset([
     # Self-report phrases
@@ -177,16 +202,28 @@ _SYMPTOM_KW = frozenset([
     # Musculoskeletal
     "joint pain", "knee pain", "back pain", "neck pain", "shoulder pain",
     "muscle pain", "muscle stiffness", "stiff neck", "stiff joints",
-    # Mental / emotional symptoms
-    "anxious", "anxiety", "panic", "panic attack", "depressed", "depression",
-    "mood swings", "irritable", "angry", "crying", "sad", "hopeless",
-    "stressed", "overwhelmed",
     # Cardiac
     "palpitations", "heart racing", "heart pounding", "irregular heartbeat",
     "skipped beat", "chest pain",
     # Weight
     "weight loss", "weight gain", "losing weight", "gaining weight",
     "sudden weight",
+])
+
+# Mental / emotional keywords — extracted from _SYMPTOM_KW so they route to
+# MENTAL_HEALTH_SYSTEM_PROMPT (coping strategies, professional help) instead
+# of SYMPTOM_SYSTEM_PROMPT (home remedies).
+_MENTAL_HEALTH_KW = frozenset([
+    # Emotional states
+    "anxious", "anxiety", "panic", "panic attack",
+    "depressed", "depression", "mood swings", "irritable",
+    "crying", "sad", "hopeless", "stressed", "overwhelmed",
+    # Broader mental health
+    "mental health", "therapy", "therapist", "counselling", "counseling",
+    "self esteem", "self-esteem", "loneliness", "lonely",
+    "burnout", "emotional distress", "grief", "grieving",
+    "ptsd", "trauma", "eating disorder", "anorexia", "bulimia",
+    "ocd", "bipolar", "schizophrenia",
 ])
 
 _PRESCRIPTION_KW = frozenset([
@@ -287,6 +324,9 @@ _URGENT_KW = frozenset([
 # ── Health topic whitelist ────────────────────────────────────────────────────
 
 _HEALTH_KW = frozenset([
+    # Vitals & measurements
+    "pulse", "bpm", "spo2", "oxygen", "bp", "heart rate", "respiration rate",
+    "systolic", "diastolic", "temperature",
     # Body & anatomy
     "body", "blood", "heart", "lung", "lungs", "liver", "kidney", "kidneys",
     "brain", "bone", "bones", "muscle", "muscles", "skin", "eye", "eyes",
@@ -373,20 +413,35 @@ _HEALTH_KW = frozenset([
 ])
 
 OFF_TOPIC_RESPONSE = (
-    "\U0001fa7a I'm **Dr. Aria**, your personal health assistant. "
-    "I specialise in health-related topics — lab reports, prescriptions, "
-    "symptoms, and general medical information.\n\n"
+    "I'm **Dr. Aria**, your health assistant. "
+    "I specialise in health-related topics — symptoms, lab reports, prescriptions, "
+    "and general medical information.\n\n"
     "It looks like your question might be outside my area of expertise. "
-    "Please ask me something health-related and I'll do my best to help! 😊"
+    "Here are some examples of questions you can ask me that I can help with:\n"
+    "- *\"What are the common causes of a persistent cough?\"*\n"
+    "- *\"How can I manage mild lower back pain at home?\"*\n"
+    "- *\"What does a high ALT level in a liver function test mean?\"*\n"
+    "- *\"Can you explain what paracetamol is prescribed for?\"*\n"
+    "- *\"What are some coping strategies for managing anxiety?\"*"
 )
+
+
+
+# ── Compile all keyword sets to word-boundary regex ───────────────────────────
+
+_SYMPTOM_REGEX      = _kw_to_regex(_SYMPTOM_KW)
+_MENTAL_HEALTH_REGEX = _kw_to_regex(_MENTAL_HEALTH_KW)
+_PRESCRIPTION_REGEX = _kw_to_regex(_PRESCRIPTION_KW)
+_LAB_REGEX          = _kw_to_regex(_LAB_KW)
+_URGENT_REGEX       = _kw_to_regex(_URGENT_KW)
+_HEALTH_REGEX       = _kw_to_regex(_HEALTH_KW)
 
 
 # ── Classifier ────────────────────────────────────────────────────────────────
 
 def is_health_related(query: str) -> bool:
     """Return True if query contains at least one health keyword."""
-    q = query.lower()
-    return any(k in q for k in _HEALTH_KW)
+    return bool(_HEALTH_REGEX.search(query))
 
 
 def classify_intent(query: str) -> str:
@@ -394,35 +449,45 @@ def classify_intent(query: str) -> str:
     Classify query intent.
 
     Priority order:
-      1. urgent       — emergencies always escalate first
-      2. symptom      — personal symptom / feeling queries
-      3. lab          — lab reports & test results
-      4. prescription — medicines & prescriptions
-      5. general      — anything else health-related
-      6. off_topic    — genuinely unrelated to health
+      1. urgent        — emergencies always escalate first
+      2. mental_health — emotional / psychological queries (before generic symptom)
+      3. symptom       — personal symptom / feeling queries
+      4. lab           — lab reports & test results
+      5. prescription  — medicines & prescriptions
+      6. general       — anything else health-related
+      7. greeting      — greetings
+      8. farewell      — farewells
+      9. off_topic     — genuinely unrelated to health
 
-    KEY FIX: is_health_related is the FALLBACK for general, not a gate.
-    A query that misses specific keyword sets but is health-related is
-    correctly routed to "general" instead of "off_topic".
+    Urgent is checked FIRST so crisis phrases like "kill myself" or "chest pain"
+    are never routed to the symptom prompt (which gives home-remedy advice).
+    Mental health is checked BEFORE symptom so emotional keywords like "anxious"
+    or "depressed" are routed to MENTAL_HEALTH_SYSTEM_PROMPT (coping + professional
+    referral) instead of SYMPTOM_SYSTEM_PROMPT (home remedies).
     """
-    q = query.lower().strip()
-    if any(k in q for k in _GREETING_KW):
-        return "greeting"
-    if any(k in q for k in _FAREWELL_KW):
-        return "farewell"
-    if any(k in q for k in _SYMPTOM_KW):
+    q = query.strip()
+    if _URGENT_REGEX.search(q):
+        return "urgent"
+    if _MENTAL_HEALTH_REGEX.search(q):
+        return "mental_health"
+    if _SYMPTOM_REGEX.search(q):
         return "symptom"
-    if any(k in q for k in _PRESCRIPTION_KW):
-        return "prescription"
-    if any(k in q for k in _LAB_KW):
+    if _LAB_REGEX.search(q):
         return "lab"
+    if _PRESCRIPTION_REGEX.search(q):
+        return "prescription"
     if is_health_related(q):
         return "general"
+    if _GREETING_REGEX.search(q):
+        return "greeting"
+    if _FAREWELL_REGEX.search(q):
+        return "farewell"
     return "off_topic"
 
+
 def detect_urgent(query: str) -> bool:
-    q = query.lower()
-    return any(k in q for k in _URGENT_KW)
+    """Return True if the query contains urgent / emergency keywords."""
+    return bool(_URGENT_REGEX.search(query))
 
 
 def get_system_prompt(intent: str) -> str:
@@ -430,7 +495,7 @@ def get_system_prompt(intent: str) -> str:
         "lab":           LAB_SYSTEM_PROMPT,
         "prescription":  PRESCRIPTION_SYSTEM_PROMPT,
         "symptom":       SYMPTOM_SYSTEM_PROMPT,
-        "urgent":        SYMPTOM_SYSTEM_PROMPT,
+        "urgent":        URGENT_SYSTEM_PROMPT,
         "general":       GENERAL_SYSTEM_PROMPT,
         "mental_health": MENTAL_HEALTH_SYSTEM_PROMPT,
     }.get(intent, MIXED_SYSTEM_PROMPT)
@@ -440,11 +505,13 @@ def get_max_tokens(intent: str) -> int:
     from health_ai.config.settings import (
         MAX_TOKENS_GENERAL, MAX_TOKENS_LAB,
         MAX_TOKENS_PRESCRIPTION, MAX_TOKENS_SYMPTOM,
+        MAX_TOKENS_URGENT, MAX_TOKENS_MENTAL_HEALTH,
     )
     return {
-        "lab":          MAX_TOKENS_LAB,
-        "prescription": MAX_TOKENS_PRESCRIPTION,
-        "symptom":      MAX_TOKENS_SYMPTOM,
-        "urgent":       MAX_TOKENS_SYMPTOM,
-        "general":      MAX_TOKENS_GENERAL,
+        "lab":           MAX_TOKENS_LAB,
+        "prescription":  MAX_TOKENS_PRESCRIPTION,
+        "symptom":       MAX_TOKENS_SYMPTOM,
+        "urgent":        MAX_TOKENS_URGENT,
+        "general":       MAX_TOKENS_GENERAL,
+        "mental_health": MAX_TOKENS_MENTAL_HEALTH,
     }.get(intent, MAX_TOKENS_GENERAL)

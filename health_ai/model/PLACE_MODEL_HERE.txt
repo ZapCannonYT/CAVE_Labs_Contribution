@@ -1,0 +1,3 @@
+Place your GGUF model file here.
+Download: https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-GGUF
+File:     qwen2.5-14b-instruct-q5_k_m.gguf (~10.7 GB)

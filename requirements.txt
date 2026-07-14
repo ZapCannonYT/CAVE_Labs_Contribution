@@ -1,0 +1,10 @@
+fastapi==0.136.1
+numpy==2.4.4
+paddleocr==3.1.0
+pdfplumber==0.11.4
+Pillow==12.2.0
+pydantic==2.13.3
+pytesseract==0.3.13
+Requests==2.33.1
+sentence_transformers==3.1.1
+uvicorn==0.46.0

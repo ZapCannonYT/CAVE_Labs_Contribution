@@ -9,6 +9,7 @@ Usage:
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from health_ai.config.settings import LOG_DIR
 
@@ -33,15 +34,20 @@ def get_logger(name: str) -> logging.Logger:
     logger.addHandler(ch)
 
     # File handler — DEBUG and above (captures everything)
+    # RotatingFileHandler prevents unbounded growth on long-running servers.
     log_file = LOG_DIR / "healthbot_v3.log"
-    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh = RotatingFileHandler(
+        log_file, maxBytes=10_000_000, backupCount=5, encoding="utf-8"
+    )
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
     # Error-only file handler
     err_file = LOG_DIR / "error.log"
-    eh = logging.FileHandler(err_file, encoding="utf-8")
+    eh = RotatingFileHandler(
+        err_file, maxBytes=10_000_000, backupCount=5, encoding="utf-8"
+    )
     eh.setLevel(logging.ERROR)
     eh.setFormatter(fmt)
     logger.addHandler(eh)

@@ -1,6 +1,6 @@
 # Dr. Aria — Advanced Personal Medical Assistant (Health AI v3.2)
 
-Welcome to the **Health AI v3.2** repository. This project delivers **Dr. Aria**, an offline-first, stateless personal medical assistant designed for secure local deployment or production execution.
+Welcome to the **Health AI v3.2** repository. This project delivers **Dr. Aria**, a stateless personal medical assistant designed to support you when you need to understand medical reports or diagnosis. 
 
 ---
 
@@ -14,12 +14,12 @@ Below is an overview of the core packages and modules configured in the workspac
 │   │   ├── server.py               # FastAPI server & endpoint orchestration
 │   │   └── main.py                 # Startup script for launching the FastAPI server
 │   ├── config/
-│   │   └── settings.py             # central configurations, path bounds, & limits
+│   │   └── settings.py             # central configurations, path bounds, & limits, model paths, LLM settings...
 │   ├── core/
-│   │   ├── character.py            # Dr. Aria system prompts, intent filters & empathy rules
+│   │   ├── character.py            # Dr. Aria system prompts, intent filters & empathy rules, defines behaviour
 │   │   ├── exceptions.py           # Custom application exception classes
 │   │   ├── logger.py               # Rotating logger engine (max 10MB, 5 backups)
-│   │   └── safety.py               # Emergency symptom matching, disclaimers & prompt guards
+│   │   └── safety.py               # Emergency symptom matching, disclaimers & prompt guards, AI jailbreak guard
 │   ├── embeddings/
 │   │   └── embedder.py             # Singleton interface for BGE embedding model
 │   ├── external/
@@ -28,7 +28,7 @@ Below is an overview of the core packages and modules configured in the workspac
 │   │   ├── llm_loader.py           # Singleton LLM loader (supports split & single GGUFs)
 │   │   └── PLACE_MODEL_HERE.txt    # Helper file indicating model directory
 │   ├── rag/
-│   │   ├── chunker.py              # Word-window text chunker (sliding overlap window)
+│   │   ├── chunker.py              # Word-window text chunker (sliding overlap window), splits documents and texts based on word count
 │   │   ├── context_builder.py      # Context assembler & prompt sanitizer
 │   │   └── document_processor.py   # Lab values parser & patient history summaries generator
 │   ├── tests/
@@ -39,10 +39,10 @@ Below is an overview of the core packages and modules configured in the workspac
 │   └── utils/
 │   │   └── document_reader.py      # Robust digital, scanned, or hybrid PDF/Image reader
 │   └── logs/                       # Server log output folder
-├── chat.html                       # Modern local developer client UI (Popover, Textarea, Animations)
+├── chat.html                       # Modern local developer client UI
 ├── requirements.txt                # System requirements & dependencies
 ├── UPGRADES.md                    # Compilation of architectural improvements in v3.2
-└── README.md                       # This developer documentation
+└── README.md                       # This developer documentation, instructions for installations and running the chatbot
 ```
 
 ---

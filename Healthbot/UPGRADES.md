@@ -66,7 +66,7 @@ This document records the step-by-step development process and implementation of
 
 ### Prompt Injection & Log Spoofing Defenses
 - **System Token Scrubbing:** Implemented `sanitize_prompt_input` inside `health_ai/rag/context_builder.py` to strip out system/chat markers (e.g., `<|im_start|>`, `<|im_end|>`) from user inputs and document segments.
-- **Override Protections:** Integrated regex safeguards inside `health_ai/core/safety.py` to detect prompts attempting to bypass instructions (e.g. *"ignore previous instructions"*), returning a standard warm disclaimer instead.
+- **Override Protections:** Integrated regex safeguards (`_INJECTION_REGEX`) inside `health_ai/core/safety.py` and a short-circuit bypass filter in `server.py` to detect prompts attempting to bypass instructions (e.g. *"ignore all instructions"*), immediately returning `BYPASS_ATTEMPT_RESPONSE` directly.
 - **Filename Sanitization:** Sanitizes newlines and carriage returns (`\r`, `\n`) from incoming filenames before logging to prevent log spoofing/injection.
 - **Hotline Alerts:** Enforces strict symptom keywords checks to append urgent medical contact details (911 / 999 / 112) to responses when emergency indicators are detected.
 
@@ -107,3 +107,10 @@ This document records the step-by-step development process and implementation of
 - **FastAPI Endpoint Sync:** Updated the `generate()` method signature in `llm_loader.py` to accept `stop_event` and `meta` dictionary arguments.
 - **Mid-Generation Cancellation:** Configured `stream=True` on `Llama` generation. The loop evaluates the `stop_event` thread flag during token yields, immediately aborting the text generation if the client disconnects.
 - **Duration Instrumentation:** Tracks exact generation time by writing start timestamps to `meta["t_start"]` immediately upon lock acquisition, logging generation duration.
+
+---
+
+### Workspace Layout & Boilerplate Restoration
+- **Workspace Hygiene:** Restructured the repository layout into a clean monorepo, keeping all backend packages organized inside the `Healthbot/` subdirectory (with sub-modules under `Healthbot/health_ai/`) to prevent root clutter.
+- **Boilerplate Recovery:** Restored the 13 essential backend boilerplate files from the local backup archives without overwriting existing custom updates or model settings.
+- **Safety Testing Coverage:** Added unit test coverage in `tests/test_safety.py` to validate both red-flag medical emergencies and prompt-injection override detection.

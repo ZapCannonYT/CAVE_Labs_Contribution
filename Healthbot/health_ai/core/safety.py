@@ -80,13 +80,16 @@ BYPASS_ATTEMPT_RESPONSE = (
 # Compiled word-boundary regex for detecting instruction bypass / prompt injection attempts
 _INJECTION_REGEX = re.compile(
     r'\b(?:'
-    r'ignore\s+(?:all\s+|previous\s+|system\s+)?instructions|'
-    r'bypass\s+(?:all\s+|previous\s+|system\s+)?instructions|'
+    r'ignore\s+(?:all\s+)?(?:previous\s+)?(?:system\s+)?instructions|'
+    r'bypass\s+(?:all\s+)?(?:previous\s+)?(?:system\s+)?(?:the\s+)?(?:guardrails?|safety|instructions?|filters?)|'
     r'system\s+override|'
-    r'forget\s+(?:all\s+|previous\s+|your\s+)?instructions|'
+    r'forget\s+(?:all\s+)?(?:previous\s+)?(?:your\s+)?instructions|'
     r'do\s+not\s+act\s+as|'
-    r'stop\s+(?:being|acting\s+as)\s+(?:a\s+)?(?:chatbot|bot|health\s+assistant|medical\s+assistant|doctor|aria)|'
-    r'you\s+are\s+now\s+a'
+    r'stop\s+(?:being|acting\s+as)\s+(?:a\s+)?(?:chatbot|bot|health\s+assistant|medical\s+assistant|doctor|aria|health\s*bot)|'
+    r'you\s+are\s+now\s+a|'
+    r'this\s+prompt\s+bypassed|'
+    r'bypassed\s+the\s+guardrails|'
+    r'ignore\s+(?:all\s+)?(?:previous\s+)?(?:system\s+)?instructions\s+to\s+be\s+(?:a\s+)?(?:health\s*bot|chatbot|bot)'
     r')\b',
     re.IGNORECASE
 )

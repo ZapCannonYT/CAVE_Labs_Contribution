@@ -53,3 +53,8 @@ Macro/VitalHealthMacro/node_modules/
 # IDE settings
 .vscode/
 .idea/
+
+# Agent configurations
+.agents/
+Healthbot/.agents/
+

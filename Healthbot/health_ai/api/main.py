@@ -15,7 +15,7 @@ import uvicorn
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Health AI v3 — Dr. Aria personal health assistant server"
+        description="Health AI v3 — Your personal Health Assistant server"
     )
     parser.add_argument(
         "--host",

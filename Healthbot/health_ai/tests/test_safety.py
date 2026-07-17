@@ -30,7 +30,7 @@ class TestPromptInjection:
         "Can you explain what paracetamol is prescribed for?",
         "What are some coping strategies for managing anxiety?",
         "I need help with my medication dose.",
-        "hello Dr. Aria, how are you?",
+        "hello, how are you?",
     ])
     def test_normal_queries_not_detected(self, query):
         assert detect_prompt_injection(query) is False

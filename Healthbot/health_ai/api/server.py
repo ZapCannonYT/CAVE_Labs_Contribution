@@ -13,7 +13,7 @@ Endpoints:
     POST /generate              LLM generation from query + chunks
     GET  /health                Health check
     GET  /server/info           Server metadata
-    GET  /greeting              Dr. Aria's welcome message
+    GET  /greeting              Assistant welcome message
 """
 
 import asyncio
@@ -62,7 +62,7 @@ log = get_logger(__name__)
 
 app = FastAPI(
     title="Health AI v3.2",
-    description="Offline personal medical AI — Dr. Aria powered by Qwen2.5-14B-Instruct.",
+    description="Personal medical AI — Your personal Health Assistant",
     version="3.2.0",
 )
 
@@ -188,7 +188,7 @@ async def startup():
     lan_ip = _get_local_ip()
 
     print("\n" + "=" * 58)
-    print("  [Dr. Aria] Health AI v3  —  Dr. Aria is loading ...")
+    print("  [Health Assistant] Health AI v3  —  Loading ...")
     print("=" * 58)
     print(f"  Local:   http://localhost:{port}")
     print(f"  Network: http://{lan_ip}:{port}   <- use this in the app")
@@ -210,7 +210,7 @@ async def startup():
     _reader  = DocumentReader()
 
     print("\n" + "=" * 58)
-    print("  [Ready] Dr. Aria is ready!")
+    print("  [Ready] Your personal Health Assistant is ready!")
     print("=" * 58 + "\n")
 
 
@@ -566,7 +566,7 @@ async def _handle_medicine_query(query: str, q: str, medicines) -> str:
                 drug_hint = "Verified drug metadata is available."
             elif api_info.get("label"):
                 drug_hint = "Verified label information is available."
-        prompt = f"""You are Dr. Aria, a warm and simple health assistant.
+        prompt = f"""You are Your personal Health Assistant, a warm and simple health assistant.
 
 Medicine: {name}
 Dose: {dose or "not listed"}
@@ -661,7 +661,7 @@ Keep it friendly and easy to understand."""
                                "interaction", "interactions", "contraindication")):
         blocks = []
         for i, med in enumerate(valid_meds, start=1):
-            prompt = f"""You are Dr. Aria, a warm and helpful health assistant.
+            prompt = f"""You are Your personal Health Assistant, a warm and helpful health assistant.
 
 Medicine: {med.name}
 Dose: {med.dose or "not listed"}
@@ -726,7 +726,7 @@ async def _handle_symptom_query(query: str, q: str,
         if not valid_history:
             return "You don't have any resolved symptoms in your history yet."
         ctx = _build_symptom_context(valid_history)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
+        return await _ask_llm(f"""You are Your personal Health Assistant, a warm and supportive health assistant.
 
 The user is reviewing their past symptoms.
 
@@ -747,7 +747,7 @@ Rules:
         specific = _find_mentioned_symptom(q, valid_history)
     if specific:
         ctx = _build_symptom_context(specific)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
+        return await _ask_llm(f"""You are Your personal Health Assistant, a warm and supportive health assistant.
 
 The user is asking about a specific symptom.
 
@@ -794,7 +794,7 @@ Rules:
                     if (s.severity or "").lower() in ("critical", "severe", "high")]
         if critical:
             ctx = _build_symptom_context(critical)
-            return await _ask_llm(f"""You are Dr. Aria, a warm but precise health assistant.
+            return await _ask_llm(f"""You are Your personal Health Assistant, a warm but precise health assistant.
 
 The user is concerned about the severity of their symptoms.
 
@@ -830,7 +830,7 @@ Rules:
                                "home remedy", "home remedies", "relief",
                                "treat", "treatment", "help with")):
         ctx = _build_symptom_context(valid_active)
-        return await _ask_llm(f"""You are Dr. Aria, a warm and practical health assistant.
+        return await _ask_llm(f"""You are Your personal Health Assistant, a warm and practical health assistant.
 
 The user wants home-care advice for their symptoms.
 
@@ -861,7 +861,7 @@ Rules:
         if has_critical else ""
     )
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and supportive health assistant.
+    return await _ask_llm(f"""You are Your personal Health Assistant, a warm and supportive health assistant.
 
 Active symptoms:
 {ctx}
@@ -916,7 +916,7 @@ async def _handle_food_lifestyle_query(query: str, q: str, medicines, active_sym
     if specific:
         med_ctx = _build_enriched_medicine_context(specific)
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and knowledgeable health assistant.
+    return await _ask_llm(f"""You are Your personal Health Assistant, a warm and knowledgeable health assistant.
 
 The user has a food or lifestyle question related to their medicines and symptoms.
 
@@ -980,7 +980,7 @@ async def _handle_cross_domain_query(query: str, q: str,
     focused_med_ctx = _build_medicine_context(specific_med) if specific_med else med_ctx
     focused_sym_ctx = _build_symptom_context(specific_sym) if specific_sym else sym_ctx
 
-    return await _ask_llm(f"""You are Dr. Aria, a warm and analytical health assistant.
+    return await _ask_llm(f"""You are Your personal Health Assistant, a warm and analytical health assistant.
 
 The user wants to understand whether their medicines and symptoms might be connected.
 
@@ -1068,8 +1068,8 @@ async def _route_patient_context_query(
 
 @app.get("/greeting", tags=["System"])
 async def greeting():
-    """Returns Dr. Aria's introduction message. Call on app startup."""
-    return {"message": GREETING_RESPONSE, "character": "Dr. Aria"}
+    """Returns the introduction message. Call on app startup."""
+    return {"message": GREETING_RESPONSE, "character": "Your personal Health Assistant"}
 
 
 @app.get("/health", tags=["System"])
@@ -1088,7 +1088,7 @@ async def server_info():
     port = int(os.environ.get("PORT", 8000))
     return {
         "server":          "Health AI v3.2",
-        "character":       "Dr. Aria",
+        "character":       "Your personal Health Assistant",
         "lan_ip":          _get_local_ip(),
         "port":            port,
         "llm_ready":       (_llm is not None and _llm._loaded),
@@ -1207,6 +1207,11 @@ def _check_chatbot_rate_limit(ident: str):
 
 @app.post("/generate", response_model=GenerateResponse, tags=["Generation"])
 async def generate(request: GenerateRequest, http_request: Request, auth: dict = Depends(require_api_key)):
+    resp = await _generate_raw(request, http_request, auth)
+    resp.response = apply_safety_layer(resp.response, request.query)
+    return resp
+
+async def _generate_raw(request: GenerateRequest, http_request: Request, auth: dict):
     # Rate limit on user ID or authorization type
     ident = auth.get("uid") or auth.get("auth_type", "anonymous")
     _check_chatbot_rate_limit(ident)
@@ -1277,6 +1282,11 @@ async def generate(request: GenerateRequest, http_request: Request, auth: dict =
                        if (request.history and MAX_HISTORY_TURNS > 0) else [])
 
     system_prompt = get_system_prompt(intent)
+    if intent not in ["greeting", "farewell", "off_topic"]:
+        system_prompt += (
+            "\n\n- At the end of your response, suggest a single follow-up question "
+            "(in italics, 1-2 lines max) that the user might want to ask next based on the context of this conversation."
+        )
     if request.patient_context and request.patient_context.situation:
         sit = request.patient_context.situation.strip()
         system_prompt += (
@@ -1363,7 +1373,7 @@ async def embed_query_compat(profile_id: str, request: EmbedQueryRequest):
 
 @app.get("/", response_class=HTMLResponse, tags=["UI"])
 async def serve_chat():
-    """Serves the Dr. Aria Health Portal UI directly on the root path."""
+    """Serves the Health Portal UI directly on the root path."""
     chat_html_path = Path(__file__).resolve().parents[2] / "chat.html"
     if chat_html_path.exists():
         return HTMLResponse(content=chat_html_path.read_text(encoding="utf-8"))

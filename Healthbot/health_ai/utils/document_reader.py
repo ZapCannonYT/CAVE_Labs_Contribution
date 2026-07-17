@@ -53,80 +53,37 @@ SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
 SUPPORTED_EXTENSIONS       = SUPPORTED_PDF_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS
 
 
-# ── Configuration dataclasses ───────────────────────────────────────────────
-# Grouping related constants into dataclasses eliminates magic numbers,
-# makes tuning visible in one place, and enables future env-var injection.
+# ── Configuration constants ─────────────────────────────────────────────────
+# Tuning constants gathered here to avoid magic numbers and make tuning visible.
 
-@dataclass(frozen=True)
-class PageClassificationConfig:
-    """Thresholds for per-page classification based on extracted character counts."""
-    # Pages with more than this many characters are reliably machine-readable.
-    char_threshold_text: int = 300
-    # Pages with fewer than this many characters are treated as blank/scanned.
-    char_threshold_ocr: int = 50
-    # Fraction of page area covered by images that tips a sparse-text page to OCR.
-    image_coverage_ocr_threshold: float = 0.40
+# Page classification thresholds
+CHAR_THRESHOLD_TEXT              = 300
+CHAR_THRESHOLD_OCR               = 50
+IMAGE_COVERAGE_OCR_THRESHOLD     = 0.40
 
+# Document classification ratios
+DIGITAL_PDF_RATIO                = 0.80
+SCANNED_PDF_RATIO                = 0.80
 
-@dataclass(frozen=True)
-class DocumentClassificationConfig:
-    """Fractions of pages needed to classify the whole document."""
-    # At least this fraction of TEXT_PAGE → DIGITAL_PDF.
-    digital_pdf_ratio: float = 0.80
-    # At least this fraction of OCR_PAGE  → SCANNED_PDF.
-    scanned_pdf_ratio: float = 0.80
+# Adaptive DPI ladder for rendering scanned PDF pages
+DPI_INITIAL                      = 150
+DPI_RETRY                        = 175
+DPI_MAX                          = 200  # Hard ceiling — going higher causes OOM on 16 GB devices
 
+# Thresholds for classifying rendered page / standalone image quality
+MIN_RESOLUTION_PX                = 100
+MIN_BLUR_SCORE                   = 20.0
+MIN_CONTRAST                     = 30.0
+MIN_BRIGHTNESS                   = 30.0
+MAX_BRIGHTNESS                   = 240.0
+LOW_QUALITY_ISSUE_COUNT          = 1
+UNREADABLE_ISSUE_COUNT           = 3
 
-@dataclass(frozen=True)
-class DpiConfig:
-    """Adaptive DPI ladder for rendering scanned PDF pages.
-
-    We start at the lowest DPI that PaddleOCR handles well and only climb
-    when quality is too poor.  Staying low saves CPU and RAM on edge devices.
-    Never exceed max_dpi to prevent OOM on embedded hardware.
-    """
-    initial: int = 150
-    retry:   int = 175
-    max:     int = 200  # Hard ceiling — going higher causes OOM on 16 GB devices
-
-
-@dataclass(frozen=True)
-class ImageQualityConfig:
-    """Thresholds for classifying rendered page / standalone image quality."""
-    # Minimum short-side pixel count considered usable for OCR.
-    min_resolution_px: int = 100
-    # Variance-of-Laplacian blur score below this → blurry image.
-    min_blur_score: float = 20.0
-    # RMS contrast below this → low contrast.
-    min_contrast: float = 30.0
-    # Mean brightness outside [min, max] → lighting problem.
-    min_brightness: float = 30.0
-    max_brightness: float = 240.0
-    # Number of quality issues allowed before classifying as LOW (vs HIGH/NORMAL).
-    low_quality_issue_count: int = 1
-    # Number of quality issues that makes the image UNREADABLE (reject, no OCR).
-    unreadable_issue_count: int = 3
-
-
-@dataclass(frozen=True)
-class OcrValidationConfig:
-    """Minimum bar an OCR result must clear to be accepted."""
-    # Average PaddleOCR confidence across all accepted lines.
-    min_avg_confidence: float = 0.30
-    # Minimum number of words in the full OCR result.
-    min_word_count: int = 3
-    # Minimum number of accepted lines.
-    min_line_count: int = 1
-    # Minimum total character count to consider the result useful.
-    min_char_length: int = 10
-
-
-# Module-level singletons — referenced throughout without re-instantiation.
-_PAGE_CFG   = PageClassificationConfig()
-_DOC_CFG    = DocumentClassificationConfig()
-_DPI_CFG    = DpiConfig()
-_QUALITY_CFG = ImageQualityConfig()
-_OCR_VAL_CFG = OcrValidationConfig()
+# Minimum bar an OCR result must clear to be accepted
+MIN_AVG_CONFIDENCE               = 0.30
+MIN_WORD_COUNT                   = 3
+MIN_LINE_COUNT                   = 1
+MIN_CHAR_LENGTH                  = 10
 
 
 # ── Known lab-report noise fragments ───────────────────────────────────────
@@ -193,14 +150,13 @@ class ImageQuality(Enum):
 class PageAnalysis:
     """Rich per-page metadata collected during PyMuPDF analysis.
 
-    Replaces the bare (page_num, PageType, char_count, has_images) tuple from
+    Replaces the bare (page_num, PageType, char_count, image_count) tuple from
     the original.  Downstream code now accesses named attributes rather than
     positional indices, which eliminates a whole class of index-transposition bugs.
     """
     page_num:       int       # 1-based, matching pdfplumber and log output
     page_type:      PageType
     char_count:     int
-    has_images:     bool
     image_count:    int       # Number of image blocks on the page
     image_coverage: float     # Fraction of page area covered by images (0.0–1.0)
     has_text_layer: bool      # True if PyMuPDF reports any embedded text (even sparse)
@@ -393,7 +349,6 @@ class DocumentReader:
                 page_num       = i,
                 page_type      = page_type,
                 char_count     = char_count,
-                has_images     = img_count > 0,
                 image_count    = img_count,
                 image_coverage = image_coverage,
                 has_text_layer = has_text_layer,
@@ -415,17 +370,17 @@ class DocumentReader:
           - Low char count AND high image coverage → OCR_PAGE (image dominates)
           - Everything else → MIXED_PAGE (ambiguous; try pdfplumber first)
         """
-        if char_count >= _PAGE_CFG.char_threshold_text:
+        if char_count >= CHAR_THRESHOLD_TEXT:
             return PageType.TEXT_PAGE
 
-        if char_count < _PAGE_CFG.char_threshold_ocr:
+        if char_count < CHAR_THRESHOLD_OCR:
             # Even if there's technically a text layer, < 50 chars is not
             # trustworthy enough for medical data — push to OCR.
             return PageType.OCR_PAGE
 
         # 50 ≤ char_count < 300: sparse text.  If images dominate the page,
         # the text is probably just a caption or watermark — route to OCR.
-        if image_coverage >= _PAGE_CFG.image_coverage_ocr_threshold:
+        if image_coverage >= IMAGE_COVERAGE_OCR_THRESHOLD:
             return PageType.OCR_PAGE
 
         return PageType.MIXED_PAGE
@@ -463,9 +418,9 @@ class DocumentReader:
         ocr_pages   = sum(1 for a in analyses if a.page_type == PageType.OCR_PAGE)
         mixed_pages = total - text_pages - ocr_pages
 
-        if (text_pages / total) >= _DOC_CFG.digital_pdf_ratio:
+        if (text_pages / total) >= DIGITAL_PDF_RATIO:
             doc_type = DocType.DIGITAL_PDF
-        elif (ocr_pages / total) >= _DOC_CFG.scanned_pdf_ratio:
+        elif (ocr_pages / total) >= SCANNED_PDF_RATIO:
             doc_type = DocType.SCANNED_PDF
         else:
             doc_type = DocType.MIXED_PDF
@@ -526,7 +481,7 @@ class DocumentReader:
         self,
         fitz_doc,
         page_index: int,
-        dpi: int = _DPI_CFG.initial,
+        dpi: int = DPI_INITIAL,
     ) -> bytes:
         """Rasterize a single PDF page to PNG bytes for OCR.
 
@@ -609,7 +564,7 @@ class DocumentReader:
         # ── Resolution ──────────────────────────────────────────────────────
         w, h      = pil_img.size
         short_side = min(w, h)
-        if short_side < _QUALITY_CFG.min_resolution_px:
+        if short_side < MIN_RESOLUTION_PX:
             log.debug(f"[quality] Low resolution: short_side={short_side}px")
             issues += 1
 
@@ -620,24 +575,24 @@ class DocumentReader:
             return ImageQuality.HIGH
 
         blur_score   = self._variance_of_laplacian(gray)
-        if blur_score < _QUALITY_CFG.min_blur_score:
+        if blur_score < MIN_BLUR_SCORE:
             log.debug(f"[quality] Blurry image: laplacian_var={blur_score:.2f}")
             issues += 1
 
         # ── Contrast (RMS contrast) ─────────────────────────────────────────
-        if contrast < _QUALITY_CFG.min_contrast:
+        if contrast < MIN_CONTRAST:
             log.debug(f"[quality] Low contrast: rms_contrast={contrast:.2f}")
             issues += 1
 
         # ── Brightness (mean pixel value) ───────────────────────────────────
         brightness = float(gray.mean())
-        if not (_QUALITY_CFG.min_brightness <= brightness <= _QUALITY_CFG.max_brightness):
+        if not (MIN_BRIGHTNESS <= brightness <= MAX_BRIGHTNESS):
             log.debug(f"[quality] Bad brightness: mean={brightness:.2f}")
             issues += 1
 
-        if issues >= _QUALITY_CFG.unreadable_issue_count:
+        if issues >= UNREADABLE_ISSUE_COUNT:
             quality = ImageQuality.UNREADABLE
-        elif issues >= _QUALITY_CFG.low_quality_issue_count:
+        elif issues >= LOW_QUALITY_ISSUE_COUNT:
             quality = ImageQuality.LOW
         else:
             quality = ImageQuality.HIGH if issues == 0 else ImageQuality.NORMAL
@@ -686,10 +641,6 @@ class DocumentReader:
         )
         return float(lap.var())
 
-    def _is_image_readable(self, quality: ImageQuality) -> bool:
-        """Return True if the quality grade is good enough to attempt OCR."""
-        return quality != ImageQuality.UNREADABLE
-
     def _choose_render_dpi(self, quality: ImageQuality) -> int:
         """Map image quality to the starting DPI for page rendering.
 
@@ -699,11 +650,11 @@ class DocumentReader:
                       as a conservative fallback so the pipeline stays defined.
         """
         if quality in (ImageQuality.HIGH, ImageQuality.NORMAL):
-            return _DPI_CFG.initial
+            return DPI_INITIAL
         if quality == ImageQuality.LOW:
-            return _DPI_CFG.retry
-        # UNREADABLE — caller must check _is_image_readable before rendering.
-        return _DPI_CFG.max
+            return DPI_RETRY
+        # UNREADABLE — caller must check readability before rendering.
+        return DPI_MAX
 
     # ── OCR orchestration ───────────────────────────────────────────────────
 
@@ -739,7 +690,8 @@ class DocumentReader:
         quality = self._analyze_image_quality(img_bytes)
         log.debug(f"[ocr] label='{label}' quality={quality.value}")
 
-        if not is_pdf_page and not self._is_image_readable(quality):
+        # Reject the image if it is unreadable (blurry, low-contrast, or under/over-exposed).
+        if not is_pdf_page and quality == ImageQuality.UNREADABLE:
             raise OCRError(
                 f"Image '{label}' is UNREADABLE (too blurry, low-contrast, or "
                 "under/over-exposed). Rejecting to avoid unreliable medical data. "
@@ -758,10 +710,10 @@ class DocumentReader:
                 return paddle_text
 
             # One retry at max DPI if initial attempt failed validation.
-            if dpi < _DPI_CFG.max:
+            if dpi < DPI_MAX:
                 log.debug(
                     f"[ocr] label='{label}' PaddleOCR output failed validation "
-                    f"at dpi={dpi} — retrying at dpi={_DPI_CFG.max}"
+                    f"at dpi={dpi} — retrying at dpi={DPI_MAX}"
                 )
                 # Note: img_bytes at this point are already a rendered image, so
                 # bumping DPI here applies to the caller's next render; for
@@ -770,7 +722,7 @@ class DocumentReader:
                 # the same bytes — PaddleOCR is stochastic enough that a retry
                 # can still improve confidence, and consistency matters more here
                 # than a true DPI re-render.
-                paddle_text = self._run_paddle_ocr(paddle, img_bytes, label, _DPI_CFG.max)
+                paddle_text = self._run_paddle_ocr(paddle, img_bytes, label, DPI_MAX)
                 if paddle_text is not None:
                     log.debug(f"[ocr] label='{label}' PaddleOCR succeeded on retry")
                     return paddle_text
@@ -912,17 +864,17 @@ class DocumentReader:
         """
         failures: list[str] = []
 
-        if avg_confidence < _OCR_VAL_CFG.min_avg_confidence:
+        if avg_confidence < MIN_AVG_CONFIDENCE:
             failures.append(
-                f"avg_confidence={avg_confidence:.3f} < {_OCR_VAL_CFG.min_avg_confidence}"
+                f"avg_confidence={avg_confidence:.3f} < {MIN_AVG_CONFIDENCE}"
             )
-        if line_count < _OCR_VAL_CFG.min_line_count:
-            failures.append(f"line_count={line_count} < {_OCR_VAL_CFG.min_line_count}")
-        if word_count < _OCR_VAL_CFG.min_word_count:
-            failures.append(f"word_count={word_count} < {_OCR_VAL_CFG.min_word_count}")
-        if len(text) < _OCR_VAL_CFG.min_char_length:
+        if line_count < MIN_LINE_COUNT:
+            failures.append(f"line_count={line_count} < {MIN_LINE_COUNT}")
+        if word_count < MIN_WORD_COUNT:
+            failures.append(f"word_count={word_count} < {MIN_WORD_COUNT}")
+        if len(text) < MIN_CHAR_LENGTH:
             failures.append(
-                f"char_length={len(text)} < {_OCR_VAL_CFG.min_char_length}"
+                f"char_length={len(text)} < {MIN_CHAR_LENGTH}"
             )
 
         if failures:
@@ -1081,7 +1033,7 @@ class DocumentReader:
 
             for a in mixed_analyses:
                 text = plumber_result.get(a.page_num, "")
-                if len(text.strip()) >= _PAGE_CFG.char_threshold_ocr:
+                if len(text.strip()) >= CHAR_THRESHOLD_OCR:
                     extracted[a.page_num] = text
                     log.debug(
                         f"[pdf] MIXED page={a.page_num} "
@@ -1117,7 +1069,7 @@ class DocumentReader:
         img_bytes = self._render_page_to_image(
             fitz_doc,
             page_index=analysis.page_num - 1,  # PyMuPDF is 0-based
-            dpi=_DPI_CFG.initial,
+            dpi=DPI_INITIAL,
         )
 
         label = f"page {analysis.page_num}"
@@ -1127,22 +1079,16 @@ class DocumentReader:
         if quality == ImageQuality.LOW:
             log.debug(
                 f"[pdf] page={analysis.page_num} quality=LOW — "
-                f"re-rendering at dpi={_DPI_CFG.retry}"
+                f"re-rendering at dpi={DPI_RETRY}"
             )
             img_bytes = self._render_page_to_image(
                 fitz_doc,
                 page_index=analysis.page_num - 1,
-                dpi=_DPI_CFG.retry,
+                dpi=DPI_RETRY,
             )
 
-        # _ocr_image_bytes handles UNREADABLE rejection, PaddleOCR validation,
-        # one max-DPI retry, and pytesseract fallback.
-        try:
-            return self._ocr_image_bytes(img_bytes, label, is_pdf_page=True)
-        except OCRError:
-            # Re-raise so the caller (and ultimately the user) gets a clear
-            # rejection message rather than a silent empty string.
-            raise
+        # Let _ocr_image_bytes handle quality-driven retries and validation.
+        return self._ocr_image_bytes(img_bytes, label, is_pdf_page=True)
 
     # ── Lab report cleaning ─────────────────────────────────────────────────
 

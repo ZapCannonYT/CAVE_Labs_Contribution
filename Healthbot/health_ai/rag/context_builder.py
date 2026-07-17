@@ -31,7 +31,7 @@ def _strip_safety_boilerplate(text: str) -> str:
     if not text:
         return ""
     # Strip standard emergency disclaimer start
-    text = text.split("\n\n---\n*Dr. Aria")[0]
+    text = text.split("\n\n---\n*Your personal Health Assistant")[0]
     text = text.split("\n\n**URGENT")[0]
     return text.strip()
 
@@ -71,9 +71,9 @@ def build_context(
         recent = history[-(MAX_HISTORY_TURNS * 2):]
         history_lines = []
         for i, msg in enumerate(recent):
-            role = "User" if i % 2 == 0 else "Dr. Aria"
+            role = "User" if i % 2 == 0 else "Health Assistant"
             content = msg.strip()
-            if role == "Dr. Aria":
+            if role == "Health Assistant":
                 content = _strip_safety_boilerplate(content)
             content = sanitize_prompt_input(content)
             history_lines.append(f"{role}: {content}")

@@ -4,26 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dr. Aria — Advanced Personal Medical Assistant</title>
+    <title>Your personal Health Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@300;400;500;600;700;800&display=swap');
 
         :root {
             color-scheme: dark;
-            accent-color: #10a37f;
-            --sidebar-bg: #171717;
-            --chat-bg: #212121;
-            --user-msg-bg: #2f2f2f;
+            accent-color: #0ea5e9;
+            --sidebar-bg: #0b0f19;
+            --chat-bg: #090d16;
+            --user-msg-bg: #1e293b;
             --bot-msg-bg: transparent;
-            --input-bg: #2f2f2f;
-            --border-color: #2f2f2f;
-            --text-main: #ececf1;
-            --text-muted: #b4b4b4;
-            --accent-color: #10a37f;
-            /* ChatGPT Teal-Green */
-            --accent-hover: #1a7f64;
+            --input-bg: #111827;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #0ea5e9;
+            --accent-hover: #38bdf8;
             --danger-color: #ef4444;
-            --font-sans: 'Source Sans 3', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
             --font-header: 'Sora', sans-serif;
         }
 
@@ -593,6 +593,212 @@
             border-radius: 4px;
         }
 
+        /* Welcome Dashboard Styles */
+        .welcome-dashboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3.5rem 1.5rem;
+            max-width: 720px;
+            width: 100%;
+            margin: auto;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        .welcome-dashboard.fade-out {
+            opacity: 0;
+            transform: translateY(-16px);
+            pointer-events: none;
+        }
+
+        .welcome-header {
+            margin-bottom: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .welcome-heartbeat {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.06);
+            border: 1px solid rgba(14, 165, 233, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.08);
+            animation: pulseGlow 3s infinite ease-in-out;
+            margin-bottom: 0.25rem;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(14, 165, 233, 0.08);
+            }
+            50% {
+                transform: scale(1.06);
+                box-shadow: 0 0 30px rgba(14, 165, 233, 0.2);
+            }
+        }
+
+        .heartbeat-svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .welcome-header h2 {
+            font-family: var(--font-header);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+
+        .welcome-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .welcome-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            width: 100%;
+        }
+
+        @media (max-width: 600px) {
+            .welcome-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .welcome-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 1.15rem;
+            display: flex;
+            gap: 1rem;
+            text-align: left;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .welcome-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(14, 165, 233, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: color 0.2s ease;
+        }
+
+        .welcome-card:hover .card-icon {
+            color: var(--accent-color);
+        }
+
+        .card-content h4 {
+            font-family: var(--font-header);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.2rem;
+        }
+
+        .card-content p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        /* Vitals HUD Badge Styling */
+        .vitals-hud {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.03), rgba(15, 23, 42, 0.4));
+            border: 1px solid rgba(14, 165, 233, 0.15);
+            border-radius: 12px;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+            animation: fadeInHUD 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.04);
+        }
+
+        .vitals-hud.hidden {
+            display: none !important;
+        }
+
+        @keyframes fadeInHUD {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hud-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .hud-pulse {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-color);
+            animation: pulseGlowCompact 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseGlowCompact {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.8;
+                box-shadow: 0 0 8px var(--accent-color);
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+                box-shadow: 0 0 14px var(--accent-color);
+            }
+        }
+
+        .hud-label {
+            font-family: var(--font-header);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--accent-color);
+        }
+
+        .hud-details {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+            word-break: break-all;
+        }
+
         /* Message Rows matching ChatGPT styles with entry animation */
         .message-row {
             width: 100%;
@@ -848,8 +1054,8 @@
     <!-- Left Sidebar Area -->
     <aside>
         <div class="sidebar-header">
-            <div class="sidebar-logo">Dr</div>
-            <h2>Dr. Aria</h2>
+            <div class="sidebar-logo">H</div>
+            <h2>Health Assistant</h2>
         </div>
 
         <!-- Upload Card Container -->
@@ -897,6 +1103,17 @@
             </div>
         </div>
 
+        <!-- Vitals HUD Badge -->
+        <div id="vitals-hud" class="vitals-hud hidden">
+            <div class="hud-status">
+                <span class="hud-pulse"></span>
+                <span class="hud-label">CLINICAL CONTEXT ACTIVE</span>
+            </div>
+            <div class="hud-details" id="hud-details-text">
+                No active document index
+            </div>
+        </div>
+
         <!-- Sidebar Tools -->
         <button id="summarize-btn" class="btn btn-secondary" disabled title="Summarize document">Summarize
             Document</button>
@@ -917,24 +1134,74 @@
                 <div class="status-dot"></div>
                 <span>Health AI Server Online</span>
             </div>
-            <span>Dr. Aria v3.2 (Local)</span>
+            <span>Health Assistant v3.2 (Local)</span>
         </div>
     </aside>
 
     <!-- Right Main Chat Area -->
     <main>
         <div class="chat-header">
-            <span>Dr. Aria — AI Health Assistant</span>
+            <span>Your personal Health Assistant</span>
         </div>
 
         <!-- Chat Messages Viewport -->
-        <div id="messages"></div>
+        <div id="messages">
+            <div id="welcome-dashboard" class="welcome-dashboard">
+                <div class="welcome-header">
+                    <div class="welcome-heartbeat">
+                        <svg class="heartbeat-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h1.5l3.5-7 3.5 14 3.5-10 1.5 3h1.5" />
+                        </svg>
+                    </div>
+                    <h2>Your personal Health Assistant</h2>
+                    <p class="welcome-subtitle">Your clinical narrative intelligence workspace</p>
+                </div>
+                <div class="welcome-grid">
+                    <div class="welcome-card" id="card-lab">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v8L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45L14 10V2zM6 2h12M10 12h4" /></svg>
+                        </div>
+                        <div class="card-content">
+                            <h4>Analyze Lab Results</h4>
+                            <p>Explain values, blood markers, and reference ranges.</p>
+                        </div>
+                    </div>
+                    <div class="welcome-card" id="card-presc">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+                        </div>
+                        <div class="card-content">
+                            <h4>Review Prescription</h4>
+                            <p>Understand drug interactions, side effects, and dosages.</p>
+                        </div>
+                    </div>
+                    <div class="welcome-card" id="card-summary">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                        </div>
+                        <div class="card-content">
+                            <h4>Clinical Summary</h4>
+                            <p>Get a quick overview of patient demographics and records.</p>
+                        </div>
+                    </div>
+                    <div class="welcome-card" id="card-term">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        </div>
+                        <div class="card-content">
+                            <h4>Explain Terminology</h4>
+                            <p>Translate medical jargon into plain, clear English.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Chat Input Area -->
         <div class="input-wrapper">
             <div class="input-box">
                 <textarea id="user-input" rows="1"
-                    placeholder="Ask Dr. Aria about your medical documents or symptoms..."
+                    placeholder="Ask about your medical documents or symptoms..."
                     autocomplete="off"></textarea>
 
                 <button id="send-btn" class="send-action-btn" aria-label="Send message">
@@ -948,7 +1215,7 @@
                     </svg>
                 </button>
             </div>
-            <p class="footer-note">Dr. Aria is an AI health assistant. Review medical files locally. Always consult a
+            <p class="footer-note">Your personal Health Assistant is an AI health assistant. Review medical files locally. Always consult a
                 healthcare professional for clinical advice.</p>
         </div>
     </main>
@@ -988,6 +1255,9 @@
         const cancelFileBtn = document.getElementById('cancel-file-btn');
         const summarizeBtn = document.getElementById('summarize-btn');
         const stopBtn = document.getElementById('stop-btn');
+        const welcomeDashboard = document.getElementById('welcome-dashboard');
+        const vitalsHud = document.getElementById('vitals-hud');
+        const hudDetailsText = document.getElementById('hud-details-text');
 
         const apiKeyInput = document.getElementById('api-key-input');
 
@@ -1006,67 +1276,39 @@
 
         function parseMarkdown(text) {
             if (!text) return '';
-            let html = text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return marked.parse(text);
+        }
 
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        function hideWelcomeDashboard() {
+            if (welcomeDashboard && !welcomeDashboard.classList.contains('fade-out')) {
+                welcomeDashboard.classList.add('fade-out');
+                setTimeout(() => {
+                    welcomeDashboard.style.display = 'none';
+                }, 300);
+            }
+        }
 
-            const lines = html.split('\n');
-            let inList = false;
-            const processedLines = [];
-
-            for (let line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
-                    if (!inList) {
-                        processedLines.push('<ul>');
-                        inList = true;
-                    }
-                    const content = trimmed.substring(2).trim();
-                    processedLines.push(`<li>${content}</li>`);
+        function updateVitalsHud(fileName = null, blockCount = 0) {
+            if (vitalsHud && hudDetailsText) {
+                if (fileName && blockCount > 0) {
+                    hudDetailsText.textContent = `${fileName} (${blockCount} blocks indexed)`;
+                    vitalsHud.classList.remove('hidden');
                 } else {
-                    if (inList) {
-                        processedLines.push('</ul>');
-                        inList = false;
-                    }
-                    if (trimmed === '---') {
-                        processedLines.push('<hr>');
-                    } else if (trimmed.startsWith('### ')) {
-                        processedLines.push(`<h3>${trimmed.substring(4).trim()}</h3>`);
-                    } else if (trimmed.startsWith('## ')) {
-                        processedLines.push(`<h2>${trimmed.substring(3).trim()}</h2>`);
-                    } else if (trimmed.startsWith('# ')) {
-                        processedLines.push(`<h1>${trimmed.substring(2).trim()}</h1>`);
-                    } else {
-                        processedLines.push(line);
-                    }
+                    hudDetailsText.textContent = 'No active document index';
+                    vitalsHud.classList.add('hidden');
                 }
             }
-            if (inList) {
-                processedLines.push('</ul>');
-            }
+        }
 
-            let result = processedLines.join('\n');
-            result = result.replace(/\n/g, '<br>');
-            result = result.replace(/<\/ul><br>/g, '</ul>');
-            result = result.replace(/<ul><br>/g, '<ul>');
-            result = result.replace(/<\/li><br>/g, '</li>');
-            result = result.replace(/<li><br>/g, '<li>');
-            result = result.replace(/<hr><br>/g, '<hr>');
-            result = result.replace(/<\/h3><br>/g, '</h3>');
-            result = result.replace(/<\/h2><br>/g, '</h2>');
-            result = result.replace(/<\/h1><br>/g, '</h1>');
-
-            return result;
+        function setPromptText(text) {
+            userInput.value = text;
+            userInput.focus();
+            userInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
         // ----- UI Helpers -----
         function addMessage(text, fromUser = false, isThinking = false) {
+            hideWelcomeDashboard();
             const row = document.createElement('div');
             row.className = `message-row ${fromUser ? 'user-row' : 'bot-row'}`;
 
@@ -1182,20 +1424,8 @@
             const progressLabel = document.getElementById('progress-text-label');
 
             if (progressContainer) progressContainer.classList.remove('hidden');
-            if (progressBar) progressBar.style.width = '10%';
-            if (progressLabel) progressLabel.textContent = 'Uploading document...';
-
-            // Simulate progress stages
-            let progressInterval = setInterval(() => {
-                if (!progressBar) return;
-                let curWidth = parseFloat(progressBar.style.width);
-                if (curWidth < 45) {
-                    progressBar.style.width = (curWidth + 5) + '%';
-                } else if (curWidth < 85) {
-                    if (progressLabel) progressLabel.textContent = 'Processing medical OCR & indexing...';
-                    progressBar.style.width = (curWidth + 1.5) + '%';
-                }
-            }, 300);
+            if (progressBar) progressBar.style.width = '50%';
+            if (progressLabel) progressLabel.textContent = 'Uploading & processing document...';
 
             const formData = new FormData();
             formData.append('file', currentFile);
@@ -1212,7 +1442,6 @@
                 body: formData
             })
                 .then(resp => {
-                    clearInterval(progressInterval);
                     if (!resp.ok) {
                         return resp.json().then(err => {
                             throw new Error(err.detail || err.message || `Upload failed with status ${resp.status}`);
@@ -1228,11 +1457,11 @@
                         storedChunks = data.chunks.map(c => c.text);
                         addMessage(`[Success] Successfully processed "${currentFile.name}"! Loaded ${storedChunks.length} text blocks. You can now ask questions about this document.`, false);
                         summarizeBtn.disabled = false;
+                        updateVitalsHud(currentFile.name, storedChunks.length);
                         setFile(null);
                     }, 500);
                 })
                 .catch(err => {
-                    clearInterval(progressInterval);
                     console.error('[chat.html] Upload error:', err);
                     addMessage(`[Error] Processing failed: ${err.message}`, false);
                     if (progressContainer) progressContainer.classList.add('hidden');
@@ -1244,6 +1473,20 @@
         }
 
         uploadBtn.addEventListener('click', uploadFile);
+
+        // ----- Welcome Dashboard Prompt Cards -----
+        document.getElementById('card-lab').addEventListener('click', () => {
+            setPromptText('Analyze my lab results: please explain key parameters, values, and any flagged warnings.');
+        });
+        document.getElementById('card-presc').addEventListener('click', () => {
+            setPromptText('Review this prescription: explain details, active drugs, and usage instructions.');
+        });
+        document.getElementById('card-summary').addEventListener('click', () => {
+            setPromptText('Summarize medical history: what are the key clinical diagnoses and assessments here?');
+        });
+        document.getElementById('card-term').addEventListener('click', () => {
+            setPromptText('Explain this medical terminology in simple, everyday language.');
+        });
 
         // ----- Summarize Document -----
         function summarizeDocument() {
@@ -1398,12 +1641,16 @@
 
         clearChatBtn.addEventListener('click', () => {
             messagesDiv.innerHTML = '';
+            if (welcomeDashboard) {
+                welcomeDashboard.classList.remove('fade-out');
+                welcomeDashboard.style.display = 'flex';
+                messagesDiv.appendChild(welcomeDashboard);
+            }
             userInput.value = '';
             userInput.focus();
         });
 
-        // Welcome Dr. Aria greeting on startup
-        addMessage("Dr. Aria Health AI online. Upload your health report or prescription, and I will help you review it.", false);
+        // Focus user input on startup
         userInput.focus();
     </script>
 

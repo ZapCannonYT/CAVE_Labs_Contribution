@@ -2,7 +2,7 @@
 safety.py — Red flag detection and disclaimer injection for Health AI v3.
 
 Red flags are medical emergencies or concerning query patterns that should
-trigger an urgent notice appended to Dr. Aria's response.
+trigger an urgent notice appended to the assistant's response.
 
 This module is the SINGLE SOURCE OF TRUTH for DISCLAIMER and URGENT_NOTICE.
 Other modules (character.py, server.py) import from here.
@@ -39,7 +39,7 @@ _URGENT_REGEX = re.compile(
 # Disclaimer appended to EVERY response
 DISCLAIMER = (
     "\n\n---\n"
-    "*Dr. Aria is an AI assistant, not a licensed doctor. "
+    "*Your personal Health Assistant is an AI assistant, not a licensed doctor. "
     "This information is for educational purposes only. "
     "Always consult a qualified healthcare professional for medical advice, "
     "diagnosis, or treatment.*"
@@ -71,7 +71,7 @@ def detect_red_flags(query: str) -> bool:
 
 # Response returned when a prompt injection/bypass attempt is detected
 BYPASS_ATTEMPT_RESPONSE = (
-    "I'm **Dr. Aria**, your health assistant. "
+    "I'm **Your personal Health Assistant**. "
     "I cannot ignore or bypass my instructions to act as a health chatbot. "
     "Please ask me a health-related question."
 )
@@ -113,9 +113,10 @@ def apply_safety_layer(response: str, query: str) -> str:
     Returns:
         The response with safety text appended and emojis stripped.
     """
-    if detect_red_flags(query):
+    if detect_red_flags(query) and "URGENT" not in response:
         response += URGENT_NOTICE
-    response += DISCLAIMER
+    if "licensed doctor" not in response and "educational purposes only" not in response:
+        response += DISCLAIMER
 
     # Globally strip any generated emojis from the final output text
     emoji_regex = re.compile(r'[\U00010000-\U0010ffff\u2600-\u27bf\u2300-\u23ff\u2b50]')
